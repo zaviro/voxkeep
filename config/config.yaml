@@ -1,0 +1,36 @@
+sample_rate: 16000
+channels: 1
+frame_ms: 20
+max_queue_size: 512
+
+funasr:
+  host: 127.0.0.1
+  port: 10096
+  path: /
+  use_ssl: false
+  reconnect_initial_s: 1.0
+  reconnect_max_s: 30.0
+
+wake:
+  threshold: 0.5
+
+vad:
+  speech_threshold: 0.5
+  silence_ms: 800
+
+capture:
+  pre_roll_ms: 600
+  armed_timeout_ms: 5000
+
+storage:
+  sqlite_path: data/asr.db
+  store_final_only: true
+  jsonl_debug_path: ""
+
+injector:
+  backend: auto
+  auto_enter: false
+  xdotool_delay_ms: 1
+
+runtime:
+  log_level: INFO

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+
+# Local env files
+.env.local
+.env
+
+# Project runtime data
+data/*.db
+data/*.db-*
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
