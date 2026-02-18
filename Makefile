@@ -6,10 +6,10 @@ sync:
 sync-ai:
 	uv sync --python 3.11 --group dev --group runtime-ai
 
-run-ai:
+run-ai: sync-ai
 	uv run --python 3.11 python -m asr_ol --config config/config.yaml
 
-check-ai:
+check-ai: sync-ai
 	uv run --python 3.11 python scripts/check_runtime_ai.py
 
 test:
