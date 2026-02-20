@@ -10,7 +10,7 @@ setup-ai-models: sync-ai
 	uv run --python 3.11 python scripts/setup_openwakeword_models.py
 
 run-ai: setup-ai-models
-	uv run --python 3.11 python -m asr_ol --config config/config.yaml
+	./scripts/run_local.sh config/config.yaml
 
 check-ai: setup-ai-models
 	uv run --python 3.11 python scripts/check_runtime_ai.py
@@ -19,7 +19,7 @@ test:
 	uv run --python 3.11 pytest -q
 
 run:
-	uv run --python 3.11 python -m asr_ol --config config/config.yaml
+	./scripts/run_local.sh config/config.yaml
 
 lint:
 	uv run --python 3.11 ruff check src tests
