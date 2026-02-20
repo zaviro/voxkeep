@@ -5,6 +5,13 @@ on:
     branches: [main, master]
   pull_request:
 
+env:
+  # CI runners do not provide CUDA devices; force CPU path for deterministic behavior.
+  ASR_OL_MANAGE_FUNASR: "0"
+  ASR_OL_FUNASR_DEVICE: "cpu"
+  ASR_OL_FUNASR_NGPU: "0"
+  CUDA_VISIBLE_DEVICES: ""
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -47,6 +54,9 @@ jobs:
 
       - name: Sync runtime-ai dependencies
         run: uv sync --group dev --group runtime-ai
+
+      - name: Prepare wake model assets
+        run: uv run python scripts/setup_openwakeword_models.py --retries 5 --retry-sleep 2
 
       - name: Runtime-ai import check
         run: uv run python scripts/check_runtime_ai.py
