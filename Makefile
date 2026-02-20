@@ -1,30 +1,33 @@
-.PHONY: sync sync-ai run-ai check-ai test run lint fmt check precommit
+.PHONY: sync sync-ai setup-ai-models run-ai check-ai test run lint fmt check precommit
 
 sync:
-	uv sync --group dev
+	uv sync --python 3.11 --group dev
 
 sync-ai:
 	uv sync --python 3.11 --group dev --group runtime-ai
 
-run-ai: sync-ai
+setup-ai-models: sync-ai
+	uv run --python 3.11 python scripts/setup_openwakeword_models.py
+
+run-ai: setup-ai-models
 	uv run --python 3.11 python -m asr_ol --config config/config.yaml
 
-check-ai: sync-ai
+check-ai: setup-ai-models
 	uv run --python 3.11 python scripts/check_runtime_ai.py
 
 test:
-	uv run pytest -q
+	uv run --python 3.11 pytest -q
 
 run:
-	uv run python -m asr_ol --config config/config.yaml
+	uv run --python 3.11 python -m asr_ol --config config/config.yaml
 
 lint:
-	uv run ruff check src tests
+	uv run --python 3.11 ruff check src tests
 
 fmt:
-	uv run ruff format src tests
+	uv run --python 3.11 ruff format src tests
 
 check: lint test
 
 precommit:
-	uv run pre-commit run --all-files
+	uv run --python 3.11 pre-commit run --all-files

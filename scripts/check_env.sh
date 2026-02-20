@@ -3,10 +3,11 @@ set -euo pipefail
 
 PASS=0
 FAIL=0
+UV_PYTHON="${ASR_OL_UV_PYTHON:-3.11}"
 
 run_python() {
   if command -v uv >/dev/null 2>&1; then
-    uv run python "$@"
+    uv run --python "$UV_PYTHON" python "$@"
   elif [[ -x ".venv/bin/python" ]]; then
     .venv/bin/python "$@"
   else
@@ -48,6 +49,7 @@ if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
 elif [[ "${DEFAULT_SOURCE}" == *".monitor"* ]]; then
   mark_fail "Default source is physical microphone"
   echo "Hint: switch default source to a real input device with pavucontrol or pactl."
+  echo "Hint: if no mic is plugged in, plug one in first."
 else
   mark_pass "Default source is physical microphone"
 fi
@@ -61,14 +63,13 @@ else
 fi
 echo
 
-echo "== wake/vad runtime libs =="
-if run_python -c 'import openwakeword, silero_vad; print("openwakeword + silero_vad ok")'; then
-  mark_pass "wake/vad runtime libs"
+echo "== wake/vad runtime =="
+if run_python scripts/check_runtime_ai.py; then
+  mark_pass "wake/vad runtime"
 else
-  mark_fail "wake/vad runtime libs"
-  echo "Hint: on Python 3.12, openwakeword may fail because tflite-runtime wheel is missing."
-  echo "Hint: use uv Python 3.11 profile for full wake/vad stack:"
-  echo "  make sync-ai && make check-ai"
+  mark_fail "wake/vad runtime"
+  echo "Hint: ensure runtime-ai deps + model assets are prepared:"
+  echo "  make sync-ai && make setup-ai-models && make check-ai"
 fi
 echo
 
