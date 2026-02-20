@@ -23,19 +23,31 @@ tests/
 
 ## 环境与依赖（uv）
 
-1. 同步开发依赖：
+项目运行时锁定 Python 3.11。
+
+1. 同步开发依赖（3.11）：
 
 ```bash
 make sync
 ```
 
-2. 如需 wake/vad 运行时依赖：
+2. 安装 wake/vad 运行时依赖（3.11）：
 
 ```bash
 make sync-ai
 ```
 
-说明：`openwakeword` 在 Python 3.12 下不可用，`make sync-ai` 会自动切换到 Python 3.11 环境。
+3. 预下载并验证 openwakeword ONNX 模型资源：
+
+```bash
+make setup-ai-models
+```
+
+可选：通过环境变量切换唤醒模型（默认 `alexa`）：
+
+```bash
+ASR_OL_WAKE_MODEL=hey_jarvis make setup-ai-models
+```
 
 ## 运行
 
@@ -46,10 +58,10 @@ make run
 等价命令：
 
 ```bash
-uv run python -m asr_ol --config config/config.yaml
+uv run --python 3.11 python -m asr_ol --config config/config.yaml
 ```
 
-启用 wake/vad 运行时依赖后，建议用 3.11 profile 运行：
+完整 wake/vad + ONNX + 注入链路运行：
 
 ```bash
 make run-ai
@@ -78,11 +90,14 @@ scripts/check_env.sh
 首次启用 pre-commit：
 
 ```bash
-uv run pre-commit install
+uv run --python 3.11 pre-commit install
 ```
 
 ## 说明
 
+- 唤醒词检测默认使用 openwakeword 的 ONNX 推理框架。
+- 默认唤醒模型为 `alexa`，可通过 `ASR_OL_WAKE_MODEL` 覆盖。
+- 默认帧长 `frame_ms=32`（512 samples@16k），与 silero-vad 默认输入长度对齐。
 - 注入策略：X11 使用 `xdotool`，Wayland 使用 `ydotool`。
 - 数据落库：仅 `storage_worker` 写 SQLite。
 - 当前阶段不接入 LLM，不提供 GUI。

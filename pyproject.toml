@@ -3,7 +3,7 @@ name = "asr-ol"
 version = "0.1.0"
 description = "Local always-on ASR with wake capture and text injection"
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.12"
 dependencies = [
   "PyYAML>=6.0.1",
   "numpy>=1.26.4",
@@ -21,7 +21,7 @@ dev = [
   "pre-commit>=4.0.1",
 ]
 runtime-ai = [
-  "openwakeword>=0.6.0; python_version < '3.12'",
+  "openwakeword>=0.6.0",
   "silero-vad>=6.2.0",
 ]
 
@@ -31,7 +31,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]

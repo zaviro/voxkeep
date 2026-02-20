@@ -46,7 +46,7 @@ class AppConfig:
 _DEFAULTS = {
     "sample_rate": 16000,
     "channels": 1,
-    "frame_ms": 20,
+    "frame_ms": 32,
     "max_queue_size": 512,
     "funasr": {
         "host": "127.0.0.1",

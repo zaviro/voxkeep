@@ -18,6 +18,12 @@ __pycache__/
 # Project runtime data
 data/*.db
 data/*.db-*
+data/*.jsonl
+data/models/
+build/
+
+# Local manual audio fixtures
+tests/true-testvoice/*.m4a
 
 # IDE and OS
 .vscode/

@@ -76,7 +76,13 @@ class FunAsrWsEngine(ASREngine):
 
         url = self._cfg.asr_ws_url
         logger.info("asr websocket connecting url=%s", url)
-        async with websockets.connect(url, ping_interval=20, ping_timeout=20, max_size=2**22) as ws:
+        async with websockets.connect(
+            url,
+            ping_interval=20,
+            ping_timeout=20,
+            max_size=2**22,
+            subprotocols=["binary"],
+        ) as ws:
             logger.info("asr websocket connected")
             sender = asyncio.create_task(self._sender(ws))
             receiver = asyncio.create_task(self._receiver(ws))
@@ -94,11 +100,13 @@ class FunAsrWsEngine(ASREngine):
                     raise task.exception()
 
     async def _sender(self, ws: Any) -> None:
+        await ws.send(json.dumps(self._build_ws_config(is_speaking=True)))
         while not self._stop_event.is_set() or not self._in_queue.empty():
             frame = await asyncio.to_thread(self._get_frame, 0.1)
             if frame is None:
                 continue
             await ws.send(frame.data_int16)
+        await ws.send(json.dumps(self._build_ws_config(is_speaking=False)))
 
     async def _receiver(self, ws: Any) -> None:
         async for raw in ws:
@@ -161,3 +169,15 @@ class FunAsrWsEngine(ASREngine):
         if payload.get("type") == "final":
             return True
         return False
+
+    def _build_ws_config(self, *, is_speaking: bool) -> dict[str, Any]:
+        return {
+            "mode": "2pass",
+            "chunk_size": [5, 10, 5],
+            "chunk_interval": 10,
+            "encoder_chunk_look_back": 4,
+            "decoder_chunk_look_back": 1,
+            "audio_fs": self._cfg.sample_rate,
+            "wav_name": "microphone",
+            "is_speaking": is_speaking,
+        }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import queue
 import threading
 from typing import Any, Protocol
@@ -36,13 +37,18 @@ class OpenWakeWordScorer:
             logger.warning("openwakeword unavailable; fallback to null scorer: %s", exc)
             return NullWakeScorer()
 
+        model_name = os.environ.get("ASR_OL_WAKE_MODEL", "alexa").strip() or "alexa"
         try:
-            model = Model()
+            model = Model(wakeword_models=[model_name], inference_framework="onnx")
         except Exception as exc:
-            logger.warning("openwakeword init failed; fallback to null scorer: %s", exc)
+            logger.warning(
+                "openwakeword onnx init failed; fallback to null scorer: %s. "
+                "Hint: run `make setup-ai-models`.",
+                exc,
+            )
             return NullWakeScorer()
 
-        logger.info("openwakeword scorer initialized")
+        logger.info("openwakeword scorer initialized framework=onnx model=%s", model_name)
         return cls(model)
 
     def score(self, frame: ProcessedFrame) -> float:
