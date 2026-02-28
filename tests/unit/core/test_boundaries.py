@@ -24,7 +24,14 @@ def test_event_shapes():
     wake = WakeEvent(ts=1.1, score=0.8, keyword="ok")
     vad = VadEvent(ts=1.2, event_type="speech_start", score=0.9)
     asr = AsrFinalEvent(segment_id="1", text="hi", start_ts=1.2, end_ts=1.3)
-    cap = CaptureCommand(session_id=1, text="hi", start_ts=1.2, end_ts=1.3)
+    cap = CaptureCommand(
+        session_id=1,
+        keyword="alexa",
+        action="inject_text",
+        text="hi",
+        start_ts=1.2,
+        end_ts=1.3,
+    )
     rec = StorageRecord(
         source="stream", text="hi", start_ts=1.2, end_ts=1.3, is_final=True, created_at=""
     )

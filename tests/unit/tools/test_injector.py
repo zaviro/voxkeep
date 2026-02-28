@@ -1,4 +1,4 @@
-from asr_ol.core.config import AppConfig
+from asr_ol.core.config import AppConfig, WakeRuleConfig
 from asr_ol.tools.injector.factory import build_injector
 from asr_ol.tools.injector.xdotool_injector import XdotoolInjector
 from asr_ol.tools.injector.ydotool_injector import YdotoolInjector
@@ -17,6 +17,14 @@ def _cfg(backend: str) -> AppConfig:
         asr_reconnect_initial_s=1.0,
         asr_reconnect_max_s=30.0,
         wake_threshold=0.5,
+        wake_rules=(
+            WakeRuleConfig(
+                keyword="alexa",
+                enabled=True,
+                threshold=0.5,
+                action="inject_text",
+            ),
+        ),
         vad_speech_threshold=0.5,
         vad_silence_ms=800,
         pre_roll_ms=600,
@@ -27,6 +35,8 @@ def _cfg(backend: str) -> AppConfig:
         injector_backend=backend,
         injector_auto_enter=False,
         xdotool_delay_ms=1,
+        openclaw_command=("openclaw", "agent", "--message", "{text}"),
+        openclaw_timeout_s=20.0,
         log_level="INFO",
     )
 

@@ -6,7 +6,8 @@ import queue
 import threading
 import time
 
-from asr_ol.agents.capture_fsm import CaptureFSM
+from asr_ol.agents.capture_fsm import CaptureFSM, CaptureWindow
+from asr_ol.agents.transcript_extractor import TranscriptExtractor
 from asr_ol.core.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,9 @@ class CaptureWorker:
         storage_queue: queue.Queue[StorageRecord],
         stop_event: threading.Event,
         fsm: CaptureFSM,
+        transcript_extractor: TranscriptExtractor,
+        action_by_keyword: dict[str, str],
+        default_action: str,
     ) -> None:
         self._wake_queue = wake_queue
         self._vad_queue = vad_queue
@@ -30,6 +34,9 @@ class CaptureWorker:
         self._storage_queue = storage_queue
         self._stop_event = stop_event
         self._fsm = fsm
+        self._extractor = transcript_extractor
+        self._action_by_keyword = dict(action_by_keyword)
+        self._default_action = default_action
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -69,26 +76,50 @@ class CaptureWorker:
 
         try:
             asr_event = self._asr_queue.get_nowait()
-            self._fsm.on_asr_final(asr_event)
+            self._extractor.on_asr_final(asr_event)
             handled = True
         except queue.Empty:
             pass
 
         try:
             vad_event = self._vad_queue.get_nowait()
-            command = self._fsm.on_vad(vad_event)
-            if command is not None:
-                self._emit_capture(command)
+            window = self._fsm.on_vad(vad_event)
+            if window is not None:
+                self._emit_capture(window)
             handled = True
         except queue.Empty:
             pass
 
         return handled
 
-    def _emit_capture(self, command: CaptureCommand) -> None:
+    def _emit_capture(self, window: CaptureWindow) -> None:
+        start_ts = window.start_ts
+        end_ts = window.end_ts
+        keyword = window.keyword
+        session_id = window.session_id
+        text = self._extractor.extract(start_ts=start_ts, end_ts=end_ts)
+        if not text:
+            logger.info("capture empty session_id=%s keyword=%s", session_id, keyword)
+            return
+
+        action = self._action_by_keyword.get(keyword, self._default_action)
+        command = CaptureCommand(
+            session_id=session_id,
+            keyword=keyword,
+            action=action,
+            text=text,
+            start_ts=start_ts,
+            end_ts=end_ts,
+        )
         try:
             self._out_queue.put_nowait(command)
-            logger.info("capture finalized session_id=%s text=%s", command.session_id, command.text)
+            logger.info(
+                "capture finalized session_id=%s keyword=%s action=%s text=%s",
+                command.session_id,
+                command.keyword,
+                command.action,
+                command.text,
+            )
         except queue.Full:
             logger.warning("capture out queue full; dropping session_id=%s", command.session_id)
             return

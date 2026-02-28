@@ -8,6 +8,14 @@ from typing import Any
 import yaml
 
 
+@dataclass(slots=True, frozen=True)
+class WakeRuleConfig:
+    keyword: str
+    enabled: bool
+    threshold: float
+    action: str
+
+
 @dataclass(slots=True)
 class AppConfig:
     sample_rate: int
@@ -21,6 +29,7 @@ class AppConfig:
     asr_reconnect_initial_s: float
     asr_reconnect_max_s: float
     wake_threshold: float
+    wake_rules: tuple[WakeRuleConfig, ...]
     vad_speech_threshold: float
     vad_silence_ms: int
     pre_roll_ms: int
@@ -31,6 +40,8 @@ class AppConfig:
     injector_backend: str
     injector_auto_enter: bool
     xdotool_delay_ms: int
+    openclaw_command: tuple[str, ...]
+    openclaw_timeout_s: float
     log_level: str
 
     @property
@@ -41,6 +52,10 @@ class AppConfig:
     def asr_ws_url(self) -> str:
         schema = "wss" if self.funasr_use_ssl else "ws"
         return f"{schema}://{self.funasr_host}:{self.funasr_port}{self.funasr_path}"
+
+    @property
+    def enabled_wake_rules(self) -> tuple[WakeRuleConfig, ...]:
+        return tuple(rule for rule in self.wake_rules if rule.enabled)
 
 
 _DEFAULTS = {
@@ -56,7 +71,37 @@ _DEFAULTS = {
         "reconnect_initial_s": 1.0,
         "reconnect_max_s": 30.0,
     },
-    "wake": {"threshold": 0.5},
+    "wake": {
+        "threshold": 0.5,
+        "rules": [
+            {"keyword": "alexa", "enabled": True, "threshold": 0.5, "action": "inject_text"},
+            {
+                "keyword": "hey_jarvis",
+                "enabled": True,
+                "threshold": 0.5,
+                "action": "openclaw_agent",
+            },
+            {
+                "keyword": "hey_mycroft",
+                "enabled": False,
+                "threshold": 0.5,
+                "action": "inject_text",
+            },
+            {
+                "keyword": "hey_rhasspy",
+                "enabled": False,
+                "threshold": 0.5,
+                "action": "inject_text",
+            },
+            {"keyword": "timer", "enabled": False, "threshold": 0.5, "action": "inject_text"},
+            {
+                "keyword": "weather",
+                "enabled": False,
+                "threshold": 0.5,
+                "action": "inject_text",
+            },
+        ],
+    },
     "vad": {"speech_threshold": 0.5, "silence_ms": 800},
     "capture": {"pre_roll_ms": 600, "armed_timeout_ms": 5000},
     "storage": {
@@ -68,6 +113,12 @@ _DEFAULTS = {
         "backend": "auto",
         "auto_enter": False,
         "xdotool_delay_ms": 1,
+    },
+    "actions": {
+        "openclaw_agent": {
+            "command": ["openclaw", "agent", "--message", "{text}"],
+            "timeout_s": 20.0,
+        }
     },
     "runtime": {"log_level": "INFO"},
 }
@@ -101,6 +152,7 @@ _ENV_MAP = {
         lambda v: v.lower() in {"1", "true", "yes", "on"},
     ),
     "ASR_OL_XDOTOOL_DELAY_MS": ("injector.xdotool_delay_ms", int),
+    "ASR_OL_OPENCLAW_TIMEOUT_S": ("actions.openclaw_agent.timeout_s", float),
     "ASR_OL_LOG_LEVEL": ("runtime.log_level", str),
 }
 
@@ -144,6 +196,64 @@ def _apply_env(conf: dict[str, Any]) -> None:
         _set_nested(conf, dest, caster(raw))
 
 
+def _parse_wake_rules(data: dict[str, Any]) -> tuple[WakeRuleConfig, ...]:
+    wake_conf = data.get("wake", {})
+    default_threshold = float(wake_conf.get("threshold", 0.5))
+    raw_rules = wake_conf.get("rules")
+    if not raw_rules:
+        default_model = os.environ.get("ASR_OL_WAKE_MODEL", "alexa").strip() or "alexa"
+        raw_rules = [
+            {
+                "keyword": default_model,
+                "enabled": True,
+                "threshold": default_threshold,
+                "action": "inject_text",
+            }
+        ]
+
+    rules: list[WakeRuleConfig] = []
+    seen_keywords: set[str] = set()
+    for item in raw_rules:
+        if not isinstance(item, dict):
+            continue
+        keyword = str(item.get("keyword", "")).strip()
+        if not keyword or keyword in seen_keywords:
+            continue
+        seen_keywords.add(keyword)
+        rules.append(
+            WakeRuleConfig(
+                keyword=keyword,
+                enabled=bool(item.get("enabled", True)),
+                threshold=float(item.get("threshold", default_threshold)),
+                action=str(item.get("action", "inject_text")).strip() or "inject_text",
+            )
+        )
+
+    if not rules:
+        rules.append(
+            WakeRuleConfig(
+                keyword="alexa",
+                enabled=True,
+                threshold=default_threshold,
+                action="inject_text",
+            )
+        )
+
+    return tuple(rules)
+
+
+def _parse_openclaw_action(data: dict[str, Any]) -> tuple[tuple[str, ...], float]:
+    actions = data.get("actions", {})
+    openclaw_raw = actions.get("openclaw_agent", {}) if isinstance(actions, dict) else {}
+    openclaw = openclaw_raw if isinstance(openclaw_raw, dict) else {}
+    raw_command = openclaw.get("command", ["openclaw", "agent", "--message", "{text}"])
+    if not isinstance(raw_command, list) or not raw_command:
+        raw_command = ["openclaw", "agent", "--message", "{text}"]
+    command = tuple(str(part) for part in raw_command)
+    timeout = float(openclaw.get("timeout_s", 20.0))
+    return command, timeout
+
+
 def load_config(path: str | os.PathLike[str]) -> AppConfig:
     resolved = Path(path)
     data = _deep_copy_dict(_DEFAULTS)
@@ -154,6 +264,8 @@ def load_config(path: str | os.PathLike[str]) -> AppConfig:
             _deep_merge(data, loaded)
 
     _apply_env(data)
+    wake_rules = _parse_wake_rules(data)
+    openclaw_command, openclaw_timeout_s = _parse_openclaw_action(data)
 
     jsonl_debug_path = data["storage"]["jsonl_debug_path"] or None
     return AppConfig(
@@ -168,6 +280,7 @@ def load_config(path: str | os.PathLike[str]) -> AppConfig:
         asr_reconnect_initial_s=float(data["funasr"]["reconnect_initial_s"]),
         asr_reconnect_max_s=float(data["funasr"]["reconnect_max_s"]),
         wake_threshold=float(data["wake"]["threshold"]),
+        wake_rules=wake_rules,
         vad_speech_threshold=float(data["vad"]["speech_threshold"]),
         vad_silence_ms=int(data["vad"]["silence_ms"]),
         pre_roll_ms=int(data["capture"]["pre_roll_ms"]),
@@ -178,5 +291,7 @@ def load_config(path: str | os.PathLike[str]) -> AppConfig:
         injector_backend=str(data["injector"]["backend"]),
         injector_auto_enter=bool(data["injector"]["auto_enter"]),
         xdotool_delay_ms=int(data["injector"]["xdotool_delay_ms"]),
+        openclaw_command=openclaw_command,
+        openclaw_timeout_s=openclaw_timeout_s,
         log_level=str(data["runtime"]["log_level"]),
     )

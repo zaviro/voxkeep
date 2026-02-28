@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import queue
+import subprocess
 import threading
 
 from asr_ol.core.events import CaptureCommand
@@ -16,10 +17,14 @@ class InjectorWorker:
         in_queue: queue.Queue[CaptureCommand],
         stop_event: threading.Event,
         injector: Injector,
+        openclaw_command: tuple[str, ...],
+        openclaw_timeout_s: float,
     ) -> None:
         self._in_queue = in_queue
         self._stop_event = stop_event
         self._injector = injector
+        self._openclaw_command = tuple(openclaw_command)
+        self._openclaw_timeout_s = openclaw_timeout_s
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -40,10 +45,59 @@ class InjectorWorker:
             except queue.Empty:
                 continue
 
-            ok = self._injector.inject(cmd.text)
+            ok = self._execute_action(cmd)
             if ok:
-                logger.info("injected session_id=%s text=%s", cmd.session_id, cmd.text)
+                logger.info(
+                    "action success session_id=%s keyword=%s action=%s text=%s",
+                    cmd.session_id,
+                    cmd.keyword,
+                    cmd.action,
+                    cmd.text,
+                )
             else:
-                logger.warning("injection failed session_id=%s text=%s", cmd.session_id, cmd.text)
+                logger.warning(
+                    "action failed session_id=%s keyword=%s action=%s text=%s",
+                    cmd.session_id,
+                    cmd.keyword,
+                    cmd.action,
+                    cmd.text,
+                )
 
         logger.info("injector worker stopped")
+
+    def _execute_action(self, cmd: CaptureCommand) -> bool:
+        if cmd.action == "inject_text":
+            return self._injector.inject(cmd.text)
+        if cmd.action == "openclaw_agent":
+            return self._run_openclaw_agent(cmd.text)
+        logger.warning("unknown capture action=%s; skip session_id=%s", cmd.action, cmd.session_id)
+        return False
+
+    def _run_openclaw_agent(self, text: str) -> bool:
+        argv: list[str] = []
+        has_placeholder = False
+        for part in self._openclaw_command:
+            if "{text}" in part:
+                has_placeholder = True
+                argv.append(part.replace("{text}", text))
+            else:
+                argv.append(part)
+        if not has_placeholder:
+            argv.append(text)
+
+        try:
+            subprocess.run(
+                argv,
+                check=True,
+                timeout=self._openclaw_timeout_s,
+            )
+        except FileNotFoundError as exc:
+            logger.warning("openclaw command not found: %s", exc)
+            return False
+        except subprocess.TimeoutExpired as exc:
+            logger.warning("openclaw command timeout: %s", exc)
+            return False
+        except subprocess.CalledProcessError as exc:
+            logger.warning("openclaw command failed: %s", exc)
+            return False
+        return True

@@ -5,6 +5,9 @@ import os
 import platform
 from pathlib import Path
 import time
+from typing import Sequence
+
+import yaml
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -13,8 +16,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("ASR_OL_WAKE_MODEL", "alexa"),
-        help="Wake model name from openwakeword.MODELS (default: alexa).",
+        action="append",
+        default=[],
+        help="Wake model name from openwakeword.MODELS. Repeat to pass multiple models.",
+    )
+    parser.add_argument(
+        "--config",
+        default="config/config.yaml",
+        help="Config path used to resolve enabled wake rules when --model is omitted.",
     )
     parser.add_argument(
         "--retries",
@@ -52,27 +61,59 @@ def _download_url_with_retries(
         raise last_error
 
 
-def _setup_assets(model_name: str, retries: int, retry_sleep: float) -> Path:
+def _resolve_model_names(cli_models: Sequence[str], config_path: str) -> list[str]:
+    models = [str(item).strip() for item in cli_models if str(item).strip()]
+    if models:
+        return sorted(set(models))
+
+    try:
+        config_file = Path(config_path)
+        if config_file.exists():
+            loaded = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+            wake_rules = (
+                loaded.get("wake", {}).get("rules", [])
+                if isinstance(loaded.get("wake", {}), dict)
+                else []
+            )
+            enabled = [
+                str(rule.get("keyword", "")).strip()
+                for rule in wake_rules
+                if isinstance(rule, dict) and bool(rule.get("enabled", True))
+            ]
+            enabled = [item for item in enabled if item]
+            if enabled:
+                return sorted(set(enabled))
+    except Exception:
+        pass
+
+    return [os.environ.get("ASR_OL_WAKE_MODEL", "alexa").strip() or "alexa"]
+
+
+def _setup_assets(model_names: Sequence[str], retries: int, retry_sleep: float) -> Path:
     import openwakeword
     from openwakeword.utils import download_models
 
-    if model_name not in openwakeword.MODELS:
-        known = ", ".join(sorted(openwakeword.MODELS))
-        raise ValueError(f"unknown wake model '{model_name}', available: {known}")
+    known = set(openwakeword.MODELS)
+    unknown = [name for name in model_names if name not in known]
+    if unknown:
+        known_names = ", ".join(sorted(known))
+        missing = ", ".join(sorted(unknown))
+        raise ValueError(f"unknown wake model(s) '{missing}', available: {known_names}")
 
     target_directory = Path(next(iter(openwakeword.MODELS.values()))["model_path"]).parent
     target_directory.mkdir(parents=True, exist_ok=True)
 
-    print(f"[INFO] prepare openwakeword assets model={model_name}")
-    download_models(model_names=[model_name], target_directory=str(target_directory))
+    print(f"[INFO] prepare openwakeword assets models={list(model_names)}")
+    download_models(model_names=list(model_names), target_directory=str(target_directory))
 
     required_urls = [
         model["download_url"].replace(".tflite", ".onnx")
         for model in openwakeword.FEATURE_MODELS.values()
     ]
     required_urls.extend(model["download_url"] for model in openwakeword.VAD_MODELS.values())
-    required_urls.append(
+    required_urls.extend(
         openwakeword.MODELS[model_name]["download_url"].replace(".tflite", ".onnx")
+        for model_name in model_names
     )
 
     for url in required_urls:
@@ -90,25 +131,25 @@ def _setup_assets(model_name: str, retries: int, retry_sleep: float) -> Path:
     return target_directory
 
 
-def _verify_onnx_runtime(model_name: str) -> None:
+def _verify_onnx_runtime(model_names: Sequence[str]) -> None:
     import numpy as np
     from openwakeword.model import Model
 
-    model = Model(wakeword_models=[model_name], inference_framework="onnx")
+    model = Model(wakeword_models=list(model_names), inference_framework="onnx")
     model.predict(np.zeros(1280, dtype=np.int16))
 
 
 def main() -> int:
     args = _build_parser().parse_args()
     print(f"python={platform.python_version()}")
-    model_name = (args.model or "alexa").strip()
+    model_names = _resolve_model_names(cli_models=args.model, config_path=args.config)
     target_directory = _setup_assets(
-        model_name=model_name,
+        model_names=model_names,
         retries=args.retries,
         retry_sleep=args.retry_sleep,
     )
-    _verify_onnx_runtime(model_name=model_name)
-    print(f"[PASS] openwakeword onnx assets ready model={model_name} dir={target_directory}")
+    _verify_onnx_runtime(model_names=model_names)
+    print(f"[PASS] openwakeword onnx assets ready models={model_names} dir={target_directory}")
     return 0
 
 

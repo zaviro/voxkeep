@@ -10,9 +10,9 @@ from asr_ol.infra.wake.openwakeword_worker import OpenWakeWordWorker
 
 
 class FakeWakeScorer:
-    def score(self, frame: ProcessedFrame) -> float:
+    def score(self, frame: ProcessedFrame) -> dict[str, float]:
         _ = frame
-        return 0.9
+        return {"alexa": 0.1, "hey_jarvis": 0.9}
 
 
 class FakeVadScorer:
@@ -49,9 +49,16 @@ def test_wake_worker_emits_event():
         in_queue=in_q,
         out_queue=out_q,
         stop_event=stop,
-        threshold=0.5,
+        rules=[
+            {"keyword": "alexa", "threshold": 0.5, "enabled": True, "action": "inject_text"},
+            {
+                "keyword": "hey_jarvis",
+                "threshold": 0.5,
+                "enabled": True,
+                "action": "openclaw_agent",
+            },
+        ],
         scorer=FakeWakeScorer(),
-        keyword="wake",
     )
 
     worker.start()
@@ -61,7 +68,7 @@ def test_wake_worker_emits_event():
     worker.join(timeout=1)
 
     event = out_q.get_nowait()
-    assert event.keyword == "wake"
+    assert event.keyword == "hey_jarvis"
 
 
 def test_vad_worker_emits_start_and_end():

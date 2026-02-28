@@ -3,7 +3,7 @@ import queue
 import numpy as np
 
 from asr_ol.infra.audio.audio_capture import SoundDeviceAudioSource
-from asr_ol.core.config import AppConfig
+from asr_ol.core.config import AppConfig, WakeRuleConfig
 
 
 def _cfg() -> AppConfig:
@@ -19,6 +19,14 @@ def _cfg() -> AppConfig:
         asr_reconnect_initial_s=1.0,
         asr_reconnect_max_s=30.0,
         wake_threshold=0.5,
+        wake_rules=(
+            WakeRuleConfig(
+                keyword="alexa",
+                enabled=True,
+                threshold=0.5,
+                action="inject_text",
+            ),
+        ),
         vad_speech_threshold=0.5,
         vad_silence_ms=800,
         pre_roll_ms=600,
@@ -29,6 +37,8 @@ def _cfg() -> AppConfig:
         injector_backend="xdotool",
         injector_auto_enter=False,
         xdotool_delay_ms=1,
+        openclaw_command=("openclaw", "agent", "--message", "{text}"),
+        openclaw_timeout_s=20.0,
         log_level="INFO",
     )
 

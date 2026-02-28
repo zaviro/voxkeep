@@ -13,6 +13,31 @@ funasr:
 
 wake:
   threshold: 0.5
+  rules:
+    - keyword: alexa
+      enabled: true
+      threshold: 0.5
+      action: inject_text
+    - keyword: hey_jarvis
+      enabled: true
+      threshold: 0.5
+      action: openclaw_agent
+    - keyword: hey_mycroft
+      enabled: false
+      threshold: 0.5
+      action: inject_text
+    - keyword: hey_rhasspy
+      enabled: false
+      threshold: 0.5
+      action: inject_text
+    - keyword: timer
+      enabled: false
+      threshold: 0.5
+      action: inject_text
+    - keyword: weather
+      enabled: false
+      threshold: 0.5
+      action: inject_text
 
 vad:
   speech_threshold: 0.5
@@ -31,6 +56,11 @@ injector:
   backend: auto
   auto_enter: false
   xdotool_delay_ms: 1
+
+actions:
+  openclaw_agent:
+    command: ["openclaw", "agent", "--message", "{text}"]
+    timeout_s: 20
 
 runtime:
   log_level: INFO

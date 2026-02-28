@@ -11,6 +11,7 @@ from asr_ol.services.audio_bus import AudioBus
 from asr_ol.infra.audio.audio_capture import SoundDeviceAudioSource
 from asr_ol.agents.capture_fsm import CaptureFSM
 from asr_ol.agents.capture_worker import CaptureWorker
+from asr_ol.agents.transcript_extractor import InMemoryTranscriptExtractor
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import (
     AsrFinalEvent,
@@ -63,7 +64,7 @@ class AppRuntime:
             in_queue=self.wake_audio_queue,
             out_queue=self.wake_event_queue,
             stop_event=self.stop_event,
-            threshold=cfg.wake_threshold,
+            rules=cfg.enabled_wake_rules,
         )
         self.vad_worker = SileroVadWorker(
             in_queue=self.vad_audio_queue,
@@ -88,6 +89,7 @@ class AppRuntime:
         self.capture_fsm = CaptureFSM(
             pre_roll_ms=cfg.pre_roll_ms, armed_timeout_ms=cfg.armed_timeout_ms
         )
+        self.transcript_extractor = InMemoryTranscriptExtractor()
         self.capture_worker = CaptureWorker(
             wake_queue=self.wake_event_queue,
             vad_queue=self.vad_event_queue,
@@ -96,12 +98,17 @@ class AppRuntime:
             storage_queue=self.storage_queue,
             stop_event=self.stop_event,
             fsm=self.capture_fsm,
+            transcript_extractor=self.transcript_extractor,
+            action_by_keyword={rule.keyword: rule.action for rule in cfg.enabled_wake_rules},
+            default_action="inject_text",
         )
 
         self.injector_worker = InjectorWorker(
             in_queue=self.capture_cmd_queue,
             stop_event=self.stop_event,
             injector=build_injector(cfg),
+            openclaw_command=cfg.openclaw_command,
+            openclaw_timeout_s=cfg.openclaw_timeout_s,
         )
 
         self.storage_worker = StorageWorker(

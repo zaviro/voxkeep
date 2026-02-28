@@ -51,6 +51,8 @@ class AsrFinalEvent:
 @dataclass(slots=True)
 class CaptureCommand:
     session_id: int
+    keyword: str
+    action: str
     text: str
     start_ts: float
     end_ts: float

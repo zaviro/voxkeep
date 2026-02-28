@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib
 import os
 import platform
+from pathlib import Path
 import sys
 
 import numpy as np
+import yaml
 
 
 def _print_result(name: str, ok: bool, detail: str) -> None:
@@ -21,21 +23,46 @@ def _check_module(name: str) -> tuple[bool, str]:
     return True, "ok"
 
 
+def _resolve_wake_models(config_path: str = "config/config.yaml") -> list[str]:
+    env_model = os.environ.get("ASR_OL_WAKE_MODEL", "").strip()
+    if env_model:
+        return [env_model]
+
+    try:
+        path = Path(config_path)
+        if path.exists():
+            loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            wake = loaded.get("wake", {})
+            rules = wake.get("rules", []) if isinstance(wake, dict) else []
+            models = [
+                str(rule.get("keyword", "")).strip()
+                for rule in rules
+                if isinstance(rule, dict) and bool(rule.get("enabled", True))
+            ]
+            models = [item for item in models if item]
+            if models:
+                return models
+    except Exception:
+        pass
+
+    return ["alexa"]
+
+
 def _check_openwakeword_onnx() -> tuple[bool, str]:
-    model_name = os.environ.get("ASR_OL_WAKE_MODEL", "alexa").strip() or "alexa"
+    model_names = _resolve_wake_models()
     try:
         from openwakeword.model import Model
     except Exception as exc:
         return False, f"import failed: {type(exc).__name__}: {exc}"
 
     try:
-        model = Model(wakeword_models=[model_name], inference_framework="onnx")
+        model = Model(wakeword_models=list(model_names), inference_framework="onnx")
         # 1280 samples (80ms @ 16k) is the nominal chunk size for openwakeword.
         model.predict(np.zeros(1280, dtype=np.int16))
     except Exception as exc:
         return False, f"onnx model init/predict failed: {type(exc).__name__}: {exc}"
 
-    return True, f"onnx model init + predict ok model={model_name}"
+    return True, f"onnx model init + predict ok models={model_names}"
 
 
 def _check_silero_runtime() -> tuple[bool, str]:
