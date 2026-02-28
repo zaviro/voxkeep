@@ -1,8 +1,17 @@
 services:
+  funasr:
+    image: ${ASR_OL_FUNASR_IMAGE:-gpudokerasr}
+    container_name: ${ASR_OL_FUNASR_CONTAINER:-asr-ol-funasr}
+    restart: unless-stopped
+    ports:
+      - "${ASR_OL_FUNASR_EXPOSE_PORT:-10096}:10096"
+
   asr-ol:
     build: .
     container_name: asr-ol
     restart: unless-stopped
+    depends_on:
+      - funasr
     privileged: true
     volumes:
       - ./config:/app/config:ro
@@ -15,4 +24,7 @@ services:
       - XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-x11}
       - DISPLAY=${DISPLAY:-:0}
       - YDOTOOL_SOCKET=/tmp/.ydotool_socket
+      - ASR_OL_FUNASR_HOST=funasr
+      - ASR_OL_FUNASR_PORT=10096
+      - ASR_OL_MANAGE_FUNASR=0
     command: ["/bin/sh", "-lc", "if [ -e /dev/uinput ]; then ydotoold --socket-path /tmp/.ydotool_socket & fi; uv run python -m asr_ol --config config/config.yaml"]

@@ -55,10 +55,34 @@ ASR_OL_WAKE_MODEL=hey_jarvis make setup-ai-models
 make run
 ```
 
+默认行为：
+- `scripts/run_local.sh` 会通过 `docker compose up -d funasr` 管理 ASR 服务生命周期；
+- 然后在本机 Python 进程中启动 `asr-ol`；
+- 退出时默认会 `stop funasr`（可通过环境变量关闭）。
+
+常用环境变量：
+- `ASR_OL_FUNASR_IMAGE`：FunASR Docker 镜像（默认 `gpudokerasr`）。
+- `ASR_OL_MANAGE_FUNASR=0`：不管理 ASR 容器，连接外部已运行的 FunASR。
+- `ASR_OL_FUNASR_DOCKER_SERVICE`：compose 中的 ASR service 名称（默认 `funasr`）。
+- `ASR_OL_FUNASR_STOP_ON_EXIT=0`：应用退出时不停止 ASR 容器。
+
 等价命令：
 
 ```bash
 uv run --python 3.11 python -m asr_ol --config config/config.yaml
+```
+
+仅启动 Docker ASR 服务（本机运行 asr-ol）：
+
+```bash
+ASR_OL_FUNASR_IMAGE=gpudokerasr docker compose up -d funasr
+make run
+```
+
+全容器运行（ASR + asr-ol）：
+
+```bash
+ASR_OL_FUNASR_IMAGE=gpudokerasr docker compose up -d funasr asr-ol
 ```
 
 完整 wake/vad + ONNX + 注入链路运行：

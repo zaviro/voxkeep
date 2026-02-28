@@ -74,8 +74,8 @@ fi
 echo
 
 echo "== FunASR TCP reachable =="
-FUNASR_HOST="${FUNASR_HOST:-127.0.0.1}"
-FUNASR_PORT="${FUNASR_PORT:-10096}"
+FUNASR_HOST="${ASR_OL_FUNASR_HOST:-${FUNASR_HOST:-127.0.0.1}}"
+FUNASR_PORT="${ASR_OL_FUNASR_PORT:-${FUNASR_PORT:-10096}}"
 if run_python - <<PY
 import socket
 
