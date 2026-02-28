@@ -31,8 +31,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --group dev
 
-      - name: Lint
-        run: uv run ruff check src tests
+      - name: Ruff Lint
+        run: uv run ruff check src tests scripts
+
+      - name: Ruff Format Check
+        run: uv run ruff format --check src tests scripts
 
       - name: Test
         run: uv run pytest -q

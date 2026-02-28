@@ -22,10 +22,10 @@ run:
 	./scripts/run_local.sh config/config.yaml
 
 lint:
-	uv run --python 3.11 ruff check src tests
+	uv run --python 3.11 ruff check src tests scripts
 
 fmt:
-	uv run --python 3.11 ruff format src tests
+	uv run --python 3.11 ruff format src tests scripts
 
 check: lint test
 
