@@ -7,6 +7,7 @@ from pathlib import Path
 import queue
 import sqlite3
 import threading
+import time
 
 from asr_ol.core.events import StorageRecord
 
@@ -20,11 +21,20 @@ class StorageWorker:
         stop_event: threading.Event,
         sqlite_path: str,
         jsonl_debug_path: str | None = None,
+        commit_batch_size: int = 32,
+        commit_flush_interval_s: float = 0.5,
     ) -> None:
+        if commit_batch_size < 1:
+            raise ValueError("commit_batch_size must be >= 1")
+        if commit_flush_interval_s <= 0:
+            raise ValueError("commit_flush_interval_s must be > 0")
+
         self._in_queue = in_queue
         self._stop_event = stop_event
         self._sqlite_path = Path(sqlite_path)
         self._jsonl_debug_path = Path(jsonl_debug_path) if jsonl_debug_path else None
+        self._commit_batch_size = int(commit_batch_size)
+        self._commit_flush_interval_s = float(commit_flush_interval_s)
         self._thread: threading.Thread | None = None
         self._count = 0
 
@@ -45,6 +55,8 @@ class StorageWorker:
     def _run(self) -> None:
         self._sqlite_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self._sqlite_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS asr_segments (
@@ -60,11 +72,27 @@ class StorageWorker:
             """
         )
         conn.commit()
+        pending_count = 0
+        last_commit_at = time.monotonic()
 
         jsonl_file = None
         if self._jsonl_debug_path is not None:
             self._jsonl_debug_path.parent.mkdir(parents=True, exist_ok=True)
             jsonl_file = self._jsonl_debug_path.open("a", encoding="utf-8")
+
+        def flush_pending(force: bool = False) -> None:
+            nonlocal pending_count, last_commit_at
+            if pending_count == 0:
+                return
+            now = time.monotonic()
+            if (
+                force
+                or pending_count >= self._commit_batch_size
+                or (now - last_commit_at) >= self._commit_flush_interval_s
+            ):
+                conn.commit()
+                pending_count = 0
+                last_commit_at = now
 
         logger.info("storage worker started sqlite=%s", self._sqlite_path)
         try:
@@ -72,6 +100,7 @@ class StorageWorker:
                 try:
                     record = self._in_queue.get(timeout=0.1)
                 except queue.Empty:
+                    flush_pending()
                     continue
 
                 created_at = record.created_at or datetime.now(tz=timezone.utc).isoformat()
@@ -90,7 +119,7 @@ class StorageWorker:
                         record.meta_json,
                     ),
                 )
-                conn.commit()
+                pending_count += 1
                 self._count += 1
 
                 if jsonl_file is not None:
@@ -110,7 +139,9 @@ class StorageWorker:
                         + "\n"
                     )
                     jsonl_file.flush()
+                flush_pending()
         finally:
+            flush_pending(force=True)
             if jsonl_file is not None:
                 jsonl_file.close()
             conn.close()
