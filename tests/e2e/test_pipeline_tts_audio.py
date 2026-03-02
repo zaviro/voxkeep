@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 import os
 from pathlib import Path
 import queue
@@ -156,6 +157,31 @@ def _generate_tts_audio(text: str, tmp_path: Path) -> Path:
     return output
 
 
+def _run_openclaw_and_collect_texts(message: str) -> list[str]:
+    proc = subprocess.run(
+        [
+            "openclaw",
+            "agent",
+            "--agent",
+            "main",
+            "--message",
+            message,
+            "--json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    result = json.loads(proc.stdout)
+    assert result["status"] == "ok"
+    return [
+        item.get("text", "")
+        for item in result.get("result", {}).get("payloads", [])
+        if isinstance(item, dict)
+    ]
+
+
 def test_pipeline_end_to_end_with_gptsovits_audio(tmp_path: Path, app_config: AppConfig):
     expected_text = "你好，流水线端到端测试"
     audio_path = _generate_tts_audio(expected_text, tmp_path)
@@ -254,3 +280,107 @@ def test_pipeline_end_to_end_with_gptsovits_audio(tmp_path: Path, app_config: Ap
     assert cmd.text == expected_text
     assert storage_q.qsize() >= 2
     assert asr_event_bus.qsize() == 1
+
+
+def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
+    tmp_path: Path, app_config: AppConfig
+):
+    expected_reply = "你好这里是openclaw"
+    transcript_text = "请忽略其他内容，只回复：你好这里是openclaw"
+    audio_path = _generate_tts_audio(transcript_text, tmp_path)
+
+    cfg = replace(
+        app_config, frame_ms=20, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
+    )
+    stop_event = threading.Event()
+
+    raw_q: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.max_queue_size)
+    wake_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
+    vad_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
+    asr_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
+
+    wake_event_q: queue.Queue[WakeEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+    vad_event_q: queue.Queue[VadEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+    asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+    capture_asr_q: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+    capture_cmd_q = queue.Queue(maxsize=cfg.max_queue_size)
+    storage_q: queue.Queue[StorageRecord] = queue.Queue(maxsize=cfg.max_queue_size)
+
+    audio_bus = AudioBus(
+        raw_queue=raw_q,
+        wake_queue=wake_audio_q,
+        vad_queue=vad_audio_q,
+        asr_queue=asr_audio_q,
+        stop_event=stop_event,
+    )
+
+    engine = FakeStreamingAsrEngine(transcript=transcript_text)
+    asr_worker = AsrWorker(
+        in_queue=asr_audio_q,
+        final_in_queue=engine.final_queue,
+        out_queue=asr_event_bus,
+        capture_queue=capture_asr_q,
+        storage_queue=storage_q,
+        stop_event=stop_event,
+        engine=engine,
+        store_final_only=True,
+    )
+
+    capture_worker = CaptureWorker(
+        wake_queue=wake_event_q,
+        vad_queue=vad_event_q,
+        asr_queue=capture_asr_q,
+        out_queue=capture_cmd_q,
+        storage_queue=storage_q,
+        stop_event=stop_event,
+        fsm=CaptureFSM(pre_roll_ms=cfg.pre_roll_ms, armed_timeout_ms=cfg.armed_timeout_ms),
+        transcript_extractor=InMemoryTranscriptExtractor(),
+        action_by_keyword={"hey_jarvis": "openclaw_agent"},
+        default_action="inject_text",
+    )
+
+    tts_pcm, tts_sr = _load_wav_pcm_f32(audio_path)
+    if tts_sr != cfg.sample_rate:
+        pytest.skip(
+            f"generated sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
+        )
+
+    ts_base = 100.0
+    raw_chunks = _chunk_raw_audio(
+        tts_pcm,
+        sample_rate=cfg.sample_rate,
+        frame_samples=cfg.frame_samples,
+        ts_base=ts_base,
+    )
+
+    wake_event_q.put(WakeEvent(ts=ts_base + 0.02, score=0.95, keyword="hey_jarvis"))
+    vad_event_q.put(VadEvent(ts=ts_base + 0.03, event_type="speech_start", score=0.9))
+
+    for raw in raw_chunks:
+        raw_q.put(raw)
+        audio_bus.run_once(timeout=0.01)
+        asr_worker._submit_audio_once()
+        asr_worker._drain_final_events()
+        capture_worker._consume_once()
+
+    vad_event_q.put(
+        VadEvent(
+            ts=ts_base + (len(raw_chunks) * cfg.frame_ms / 1000.0) + 0.05,
+            event_type="speech_end",
+            score=0.1,
+        )
+    )
+
+    for _ in range(8):
+        asr_worker._drain_final_events()
+        capture_worker._consume_once()
+        if not capture_cmd_q.empty():
+            break
+
+    cmd = capture_cmd_q.get_nowait()
+    assert cmd.action == "openclaw_agent"
+    assert cmd.keyword == "hey_jarvis"
+    assert cmd.text == transcript_text
+
+    payload_texts = _run_openclaw_and_collect_texts(cmd.text)
+    assert any(expected_reply in item for item in payload_texts)

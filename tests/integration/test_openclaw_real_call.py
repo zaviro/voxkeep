@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 import queue
-import shutil
 import subprocess
 import threading
-
-import pytest
 
 from asr_ol.agents.capture_fsm import CaptureFSM
 from asr_ol.agents.capture_worker import CaptureWorker
@@ -16,11 +12,7 @@ from asr_ol.core.events import AsrFinalEvent, VadEvent, WakeEvent
 
 
 def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():
-    if os.environ.get("ASR_OL_RUN_REAL_OPENCLAW_TEST") != "1":
-        pytest.skip("set ASR_OL_RUN_REAL_OPENCLAW_TEST=1 to run real openclaw integration")
-    if shutil.which("openclaw") is None:
-        pytest.skip("openclaw CLI not found")
-
+    prompt_text = "请忽略其他内容，只回复：你好这里是openclaw"
     agents = subprocess.run(
         ["openclaw", "agents", "list", "--json"],
         check=True,
@@ -29,8 +21,7 @@ def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():
         timeout=30,
     )
     payload = json.loads(agents.stdout)
-    if not any(item.get("id") == "main" for item in payload if isinstance(item, dict)):
-        pytest.skip("openclaw agent 'main' not found")
+    assert any(item.get("id") == "main" for item in payload if isinstance(item, dict))
 
     wake_q: queue.Queue[WakeEvent] = queue.Queue()
     vad_q: queue.Queue[VadEvent] = queue.Queue()
@@ -51,7 +42,14 @@ def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():
     )
 
     wake_q.put(WakeEvent(ts=10.0, score=0.9, keyword="hey_jarvis"))
-    asr_q.put(AsrFinalEvent(segment_id="seg-1", text="hi", start_ts=10.05, end_ts=10.3))
+    asr_q.put(
+        AsrFinalEvent(
+            segment_id="seg-1",
+            text=prompt_text,
+            start_ts=10.05,
+            end_ts=10.3,
+        )
+    )
     vad_q.put(VadEvent(ts=10.1, event_type="speech_start", score=0.9))
     vad_q.put(VadEvent(ts=10.5, event_type="speech_end", score=0.1))
     worker._consume_once()
@@ -60,7 +58,7 @@ def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():
     cmd = out_q.get_nowait()
     assert cmd.action == "openclaw_agent"
     assert cmd.keyword == "hey_jarvis"
-    assert cmd.text == "hi"
+    assert cmd.text == prompt_text
 
     proc = subprocess.run(
         [
@@ -84,4 +82,4 @@ def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():
         for item in result.get("result", {}).get("payloads", [])
         if isinstance(item, dict)
     ]
-    assert any(text.strip() for text in texts)
+    assert any("你好这里是openclaw" in text for text in texts)
