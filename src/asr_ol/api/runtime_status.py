@@ -1,3 +1,5 @@
+"""Runtime status collection helpers for diagnostics and future APIs."""
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -6,21 +8,31 @@ from typing import Any, Protocol
 
 
 class QueueLike(Protocol):
+    """Protocol for queue-like objects exposing `qsize`."""
+
     def qsize(self) -> int:
+        """Return current queue size."""
         raise NotImplementedError
 
 
 class EventLike(Protocol):
+    """Protocol for event-like objects exposing `is_set`."""
+
     def is_set(self) -> bool:
+        """Report whether the event is set."""
         raise NotImplementedError
 
 
 class RuntimeLike(Protocol):
+    """Protocol describing runtime attributes used by status collector."""
+
     stop_event: EventLike
 
 
 @dataclass(slots=True)
 class RuntimeStatus:
+    """Serializable runtime status payload."""
+
     created_at: str
     running: bool
     queue_sizes: dict[str, int]
@@ -42,6 +54,15 @@ def _queue_size(runtime: RuntimeLike, attr_name: str) -> int:
 
 
 def collect_runtime_status(runtime: RuntimeLike) -> RuntimeStatus:
+    """Collect queue sizes and running state from runtime object.
+
+    Args:
+        runtime: Runtime instance exposing standard queue and stop_event attributes.
+
+    Returns:
+        Collected runtime status dataclass.
+
+    """
     queue_names = [
         "raw_queue",
         "wake_audio_queue",
@@ -71,4 +92,5 @@ def collect_runtime_status(runtime: RuntimeLike) -> RuntimeStatus:
 
 
 def collect_runtime_status_dict(runtime: RuntimeLike) -> dict[str, Any]:
+    """Collect runtime status and return plain dictionary representation."""
     return asdict(collect_runtime_status(runtime))

@@ -1,5 +1,8 @@
 # asr-ol
 
+[![CI](https://github.com/zaviro/asr-ol/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/zaviro/asr-ol/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 本项目在 Ubuntu 24.04 上实现本地常驻语音链路：持续 ASR、唤醒后截取一句、并注入当前焦点输入框。
 
 ## 项目结构
@@ -96,8 +99,14 @@ make run-ai
 ```bash
 make test
 make lint
+make typecheck
+make test-cov
 make precommit
 ```
+
+说明：
+- `make typecheck` 当前通过 `pyright` 做静态类型检查（CI 先以非阻塞模式观察）。
+- `make test-cov` 输出终端覆盖率摘要并生成 `coverage.xml`。
 
 检查 runtime-ai 可用性：
 

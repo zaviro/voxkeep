@@ -1,3 +1,5 @@
+"""SQLite-backed storage worker for ASR and capture records."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -18,6 +20,8 @@ _QUEUE_GET_TIMEOUT_S = 0.1
 
 
 class StorageWorker:
+    """Persist storage records to SQLite and optional JSONL debug stream."""
+
     def __init__(
         self,
         in_queue: queue.Queue[StorageRecord],
@@ -27,6 +31,7 @@ class StorageWorker:
         commit_batch_size: int = 32,
         commit_flush_interval_s: float = 0.5,
     ) -> None:
+        """Initialize worker with batching and flush policies."""
         if commit_batch_size < 1:
             raise ValueError("commit_batch_size must be >= 1")
         if commit_flush_interval_s <= 0:
@@ -43,19 +48,23 @@ class StorageWorker:
 
     @property
     def write_count(self) -> int:
+        """Return number of records written by this worker."""
         return self._count
 
     def start(self) -> None:
+        """Start background storage thread once."""
         if self._thread is not None:
             return
         self._thread = threading.Thread(target=self._run, name="storage_worker", daemon=True)
         self._thread.start()
 
     def join(self, timeout: float | None = None) -> None:
+        """Join storage thread."""
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
     def is_alive(self) -> bool:
+        """Return whether storage thread is currently alive."""
         return self._thread is not None and self._thread.is_alive()
 
     def _run(self) -> None:

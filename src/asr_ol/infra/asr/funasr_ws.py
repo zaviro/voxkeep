@@ -1,3 +1,5 @@
+"""FunASR websocket engine adapter implementation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +23,10 @@ _FRAME_POLL_TIMEOUT_S = 0.1
 
 
 class FunAsrWsEngine(ASREngine):
+    """ASR engine implementation backed by FunASR websocket sessions."""
+
     def __init__(self, cfg: AppConfig, stop_event: threading.Event):
+        """Initialize websocket engine queues and lifecycle state."""
         self._cfg = cfg
         self._stop_event = stop_event
         self._in_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
@@ -30,15 +35,18 @@ class FunAsrWsEngine(ASREngine):
 
     @property
     def final_queue(self) -> queue.Queue[AsrFinalEvent]:
+        """Return queue receiving finalized transcript events."""
         return self._final_queue
 
     def start(self) -> None:
+        """Start background asyncio loop thread once."""
         if self._thread is not None:
             return
         self._thread = threading.Thread(target=self._run_thread, name="asr_engine", daemon=True)
         self._thread.start()
 
     def submit_frame(self, frame: ProcessedFrame) -> None:
+        """Submit one preprocessed audio frame for upstream websocket sender."""
         put_nowait_or_drop(
             self._in_queue,
             frame,
@@ -47,10 +55,12 @@ class FunAsrWsEngine(ASREngine):
         )
 
     def close(self) -> None:
+        """Request engine close; actual lifecycle follows stop event."""
         # Engine lifecycle follows stop_event; method kept for interface symmetry.
         logger.info("asr engine close requested")
 
     def join(self, timeout: float | None = None) -> None:
+        """Join background engine thread."""
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
