@@ -34,9 +34,9 @@ class AsrWorker:
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        self._engine.start()
         if self._thread is not None:
             return
+        self._engine.start()
         self._thread = threading.Thread(target=self._run, name="asr_worker", daemon=True)
         self._thread.start()
 

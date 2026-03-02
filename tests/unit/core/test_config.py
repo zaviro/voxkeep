@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+from dataclasses import FrozenInstanceError, replace
+
+import pytest
+
 from asr_ol.core.config import AppConfig, load_config
 
 
@@ -42,3 +48,27 @@ def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):
     assert cfg.enabled_wake_rules[1].action == "openclaw_agent"
     assert cfg.openclaw_command == ("openclaw", "agent", "--message", "{text}")
     assert cfg.openclaw_timeout_s == 21.0
+
+
+def test_app_config_is_frozen(app_config: AppConfig):
+    with pytest.raises(FrozenInstanceError):
+        app_config.sample_rate = 8000  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "match_text"),
+    [
+        ({"sample_rate": 0}, "sample_rate"),
+        ({"max_queue_size": 0}, "max_queue_size"),
+        ({"vad_speech_threshold": 1.5}, "vad_speech_threshold"),
+        ({"asr_reconnect_max_s": 0.5}, "asr_reconnect_max_s"),
+        ({"funasr_path": "not-slash"}, "funasr_path"),
+    ],
+)
+def test_app_config_validation_rejects_invalid_values(
+    app_config: AppConfig,
+    overrides: dict[str, object],
+    match_text: str,
+):
+    with pytest.raises(ValueError, match=match_text):
+        replace(app_config, **overrides)

@@ -4,10 +4,12 @@ import logging
 import queue
 import threading
 import time
+from typing import Protocol
 
 from asr_ol.infra.asr.funasr_ws import FunAsrWsEngine
 from asr_ol.services.asr_worker import AsrWorker
 from asr_ol.services.audio_bus import AudioBus
+from asr_ol.services.lifecycle import Worker, WorkerHandle
 from asr_ol.infra.audio.audio_capture import SoundDeviceAudioSource
 from asr_ol.agents.capture_fsm import CaptureFSM
 from asr_ol.agents.capture_worker import CaptureWorker
@@ -29,6 +31,14 @@ from asr_ol.infra.vad.silero_worker import SileroVadWorker
 from asr_ol.infra.wake.openwakeword_worker import OpenWakeWordWorker
 
 logger = logging.getLogger(__name__)
+
+
+class AudioSourceLike(Protocol):
+    def start(self) -> None:
+        raise NotImplementedError
+
+    def stop(self) -> None:
+        raise NotImplementedError
 
 
 class AppRuntime:
@@ -118,15 +128,40 @@ class AppRuntime:
             jsonl_debug_path=cfg.jsonl_debug_path,
         )
 
+        self._startup_workers = (
+            self._worker_handle("storage_worker", self.storage_worker, 2),
+            self._worker_handle("capture_worker", self.capture_worker, 2),
+            self._worker_handle("injector_worker", self.injector_worker, 2),
+            self._worker_handle("wake_worker", self.wake_worker, 2),
+            self._worker_handle("vad_worker", self.vad_worker, 2),
+            self._worker_handle("asr_worker", self.asr_worker, 3),
+            self._worker_handle("audio_bus", self.audio_bus, 2),
+        )
+        self._shutdown_workers = (
+            self._worker_handle("audio_bus", self.audio_bus, 2),
+            self._worker_handle("wake_worker", self.wake_worker, 2),
+            self._worker_handle("vad_worker", self.vad_worker, 2),
+            self._worker_handle("asr_worker", self.asr_worker, 3),
+            self._worker_handle("capture_worker", self.capture_worker, 2),
+            self._worker_handle("injector_worker", self.injector_worker, 2),
+            self._worker_handle("storage_worker", self.storage_worker, 2),
+        )
+
+    @staticmethod
+    def _worker_handle(name: str, worker: Worker, join_timeout_s: float) -> WorkerHandle:
+        return WorkerHandle(name=name, worker=worker, join_timeout_s=join_timeout_s)
+
+    def _start_workers(self) -> None:
+        for handle in self._startup_workers:
+            handle.worker.start()
+
+    def _join_workers(self) -> None:
+        for handle in self._shutdown_workers:
+            handle.worker.join(timeout=handle.join_timeout_s)
+
     def start(self) -> None:
         logger.info("runtime starting")
-        self.storage_worker.start()
-        self.capture_worker.start()
-        self.injector_worker.start()
-        self.wake_worker.start()
-        self.vad_worker.start()
-        self.asr_worker.start()
-        self.audio_bus.start()
+        self._start_workers()
         self.audio_source.start()
         logger.info("runtime started")
 
@@ -144,11 +179,5 @@ class AppRuntime:
         except Exception:
             logger.exception("audio source stop failed")
 
-        self.audio_bus.join(timeout=2)
-        self.wake_worker.join(timeout=2)
-        self.vad_worker.join(timeout=2)
-        self.asr_worker.join(timeout=3)
-        self.capture_worker.join(timeout=2)
-        self.injector_worker.join(timeout=2)
-        self.storage_worker.join(timeout=2)
+        self._join_workers()
         logger.info("runtime stopped")
