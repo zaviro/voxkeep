@@ -28,6 +28,12 @@ from asr_ol.services.asr_worker import AsrWorker
 from asr_ol.services.audio_bus import AudioBus
 
 
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_DIR = ROOT / "tests" / "fixtures" / "audio" / "gptsovits"
+ALEXA_AUDIO = FIXTURE_DIR / "alexa_inject_text_zh.wav"
+HEY_JARVIS_AUDIO = FIXTURE_DIR / "hey_jarvis_openclaw_zh.wav"
+
+
 class FakeStreamingAsrEngine:
     def __init__(self, transcript: str):
         self.final_queue: queue.Queue[AsrFinalEvent] = queue.Queue()
@@ -55,6 +61,20 @@ class FakeStreamingAsrEngine:
 
     def close(self) -> None:
         return
+
+
+def _require_fixture(path: Path) -> Path:
+    if os.environ.get("ASR_OL_RUN_GPTSOVITS_E2E") != "1":
+        pytest.skip("set ASR_OL_RUN_GPTSOVITS_E2E=1 to run GPT-SoVITS fixture E2E")
+
+    if not path.exists() or path.stat().st_size <= 0:
+        raise RuntimeError(
+            "missing GPT-SoVITS fixture audio: "
+            f"{path}.\n"
+            "Generate once with:\n"
+            "  .codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh"
+        )
+    return path
 
 
 def _load_wav_pcm_f32(path: Path) -> tuple[np.ndarray, int]:
@@ -104,59 +124,6 @@ def _chunk_raw_audio(
     return chunks
 
 
-def _generate_tts_audio(text: str, tmp_path: Path) -> Path:
-    if os.environ.get("ASR_OL_RUN_GPTSOVITS_E2E") != "1":
-        pytest.skip("set ASR_OL_RUN_GPTSOVITS_E2E=1 to run GPT-SoVITS TTS E2E")
-
-    script = Path(".codex/skills/gptsovits-cli-tts/scripts/tts_request.sh")
-    if not script.exists():
-        pytest.skip("gptsovits-cli-tts skill script not found")
-
-    ref_audio = os.environ.get("ASR_OL_TTS_REF_AUDIO", "").strip()
-    prompt_text = os.environ.get("ASR_OL_TTS_PROMPT_TEXT", "").strip()
-    text_lang = os.environ.get("ASR_OL_TTS_TEXT_LANG", "zh").strip() or "zh"
-    prompt_lang = os.environ.get("ASR_OL_TTS_PROMPT_LANG", text_lang).strip() or text_lang
-
-    if not ref_audio or not prompt_text:
-        pytest.skip("ASR_OL_TTS_REF_AUDIO and ASR_OL_TTS_PROMPT_TEXT are required")
-
-    output = tmp_path / "gptsovits-e2e.wav"
-    cmd = [
-        str(script),
-        "--text",
-        text,
-        "--text-lang",
-        text_lang,
-        "--ref-audio",
-        ref_audio,
-        "--prompt-lang",
-        prompt_lang,
-        "--prompt-text",
-        prompt_text,
-        "--output",
-        str(output),
-    ]
-
-    if os.environ.get("ASR_OL_TTS_START_SERVICE") == "1":
-        cmd.append("--start-service")
-
-    proc = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"gptsovits tts request failed\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}\n"
-        )
-
-    if not output.exists() or output.stat().st_size == 0:
-        raise RuntimeError("gptsovits tts output file missing or empty")
-
-    return output
-
-
 def _run_openclaw_and_collect_texts(message: str) -> list[str]:
     proc = subprocess.run(
         [
@@ -182,9 +149,9 @@ def _run_openclaw_and_collect_texts(message: str) -> list[str]:
     ]
 
 
-def test_pipeline_end_to_end_with_gptsovits_audio(tmp_path: Path, app_config: AppConfig):
+def test_pipeline_end_to_end_with_gptsovits_audio(app_config: AppConfig):
     expected_text = "你好，流水线端到端测试"
-    audio_path = _generate_tts_audio(expected_text, tmp_path)
+    audio_path = _require_fixture(ALEXA_AUDIO)
 
     cfg = replace(
         app_config, frame_ms=20, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
@@ -238,8 +205,8 @@ def test_pipeline_end_to_end_with_gptsovits_audio(tmp_path: Path, app_config: Ap
 
     tts_pcm, tts_sr = _load_wav_pcm_f32(audio_path)
     if tts_sr != cfg.sample_rate:
-        pytest.skip(
-            f"generated sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
+        raise RuntimeError(
+            f"fixture sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
         )
 
     ts_base = 100.0
@@ -282,12 +249,10 @@ def test_pipeline_end_to_end_with_gptsovits_audio(tmp_path: Path, app_config: Ap
     assert asr_event_bus.qsize() == 1
 
 
-def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
-    tmp_path: Path, app_config: AppConfig
-):
+def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(app_config: AppConfig):
     expected_reply = "你好这里是openclaw"
     transcript_text = "请忽略其他内容，只回复：你好这里是openclaw"
-    audio_path = _generate_tts_audio(transcript_text, tmp_path)
+    audio_path = _require_fixture(HEY_JARVIS_AUDIO)
 
     cfg = replace(
         app_config, frame_ms=20, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
@@ -341,8 +306,8 @@ def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
 
     tts_pcm, tts_sr = _load_wav_pcm_f32(audio_path)
     if tts_sr != cfg.sample_rate:
-        pytest.skip(
-            f"generated sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
+        raise RuntimeError(
+            f"fixture sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
         )
 
     ts_base = 100.0

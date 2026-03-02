@@ -1,0 +1,4 @@
+interface:
+  display_name: "GPT-SoVITS Test Fixtures"
+  short_description: "Generate reusable GPT-SoVITS audio fixtures for E2E tests"
+  default_prompt: "Use this skill to generate and verify prebuilt GPT-SoVITS test audio fixtures."
