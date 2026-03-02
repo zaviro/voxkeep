@@ -32,7 +32,15 @@ Linting/formatting is enforced by Ruff (`line-length = 100`, rules `E`/`F`) plus
 Testing framework is `pytest` (configured in `pyproject.toml` with `testpaths = ["tests"]`). Name files `test_*.py` and functions `test_*`. Add unit tests for pure logic (for example, `capture_fsm`) and integration tests for threaded pipeline behavior (`audio_bus`, shutdown, storage worker).
 
 Example targeted run:
-`uv run --python 3.11 pytest tests/unit/agents/test_capture_fsm.py -q`
+`uv run --python 3.11 python -m pytest tests/unit/agents/test_capture_fsm.py -q`
+
+### GPT-SoVITS Fixture E2E
+- E2E must use pre-generated fixtures under `tests/fixtures/audio/gptsovits/`.
+- Required fixture files: `alexa_inject_text_zh.wav` and `hey_jarvis_openclaw_zh.wav`.
+- Generate or refresh fixtures with `.codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh`.
+- Preferred API startup is external workspace script: `~/workspace/gptsovits/scripts/start_api_cuda.sh`.
+- Run fixture E2E with:
+  `ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q`.
 
 ## Commit & Pull Request Guidelines
 Current history uses Conventional Commits (`fix: ...`, `chore: ...`); keep using `type: summary` (for example, `feat: add ydotool fallback logging`). Keep commits focused and test-backed.

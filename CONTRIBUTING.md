@@ -56,8 +56,9 @@ PRs should include:
 .codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh
 ```
 
+- 默认 API 启动脚本：`~/workspace/gptsovits/scripts/start_api_cuda.sh`。
 - 运行 GPT-SoVITS 夹具 E2E：
 
 ```bash
-ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 pytest tests/e2e/test_pipeline_tts_audio.py -q
+ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
 ```
