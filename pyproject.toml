@@ -17,6 +17,8 @@ asr-ol = "asr_ol.cli.main:main"
 [dependency-groups]
 dev = [
   "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+  "pyright>=1.1.389",
   "ruff>=0.9.0",
   "pre-commit>=4.0.1",
 ]
@@ -45,11 +47,19 @@ convention = "google"
 "tests/**" = ["D"]
 "src/asr_ol/__init__.py" = ["D"]
 "src/asr_ol/__main__.py" = ["D"]
-"src/asr_ol/api/**" = ["D"]
 "src/asr_ol/agents/**" = ["D"]
-"src/asr_ol/cli/**" = ["D"]
-"src/asr_ol/infra/**" = ["D"]
+"src/asr_ol/infra/audio/**" = ["D"]
+"src/asr_ol/infra/vad/**" = ["D"]
+"src/asr_ol/infra/wake/**" = ["D"]
 "src/asr_ol/tools/**" = ["D"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+include = ["src/asr_ol/core", "src/asr_ol/services"]
+reportMissingTypeStubs = false
 
 [tool.setuptools]
 package-dir = {"" = "src"}

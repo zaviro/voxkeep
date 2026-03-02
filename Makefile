@@ -1,4 +1,4 @@
-.PHONY: sync sync-ai setup-ai-models run-ai check-ai test run lint fmt check precommit
+.PHONY: sync sync-ai setup-ai-models run-ai check-ai test test-cov typecheck run lint fmt check precommit
 
 sync:
 	uv sync --python 3.11 --group dev
@@ -17,6 +17,12 @@ check-ai: setup-ai-models
 
 test:
 	uv run --python 3.11 pytest -q
+
+test-cov:
+	uv run --python 3.11 pytest --cov=src/asr_ol --cov-report=term --cov-report=xml
+
+typecheck:
+	uv run --python 3.11 pyright
 
 run:
 	./scripts/run_local.sh config/config.yaml
