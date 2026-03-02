@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import queue
+import subprocess
 import threading
+
+import pytest
 
 from asr_ol.core.events import CaptureCommand
 from asr_ol.services.injector_worker import InjectorWorker
@@ -74,3 +77,31 @@ def test_execute_action_routes_to_openclaw(monkeypatch):
     assert called["argv"] == ["openclaw", "agent", "--message", "你好"]
     assert called["check"] is True
     assert called["timeout"] == 15.0
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        FileNotFoundError("openclaw"),
+        subprocess.TimeoutExpired(cmd=["openclaw"], timeout=1.0),
+        subprocess.CalledProcessError(returncode=1, cmd=["openclaw"]),
+    ],
+)
+def test_run_openclaw_agent_handles_subprocess_failures(monkeypatch, error: Exception):
+    injector = FakeInjector()
+
+    def _fake_run(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise error
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+    worker = InjectorWorker(
+        in_queue=queue.Queue(),
+        stop_event=threading.Event(),
+        injector=injector,
+        openclaw_command=("openclaw", "agent", "--message", "{text}"),
+        openclaw_timeout_s=10.0,
+    )
+
+    ok = worker._run_openclaw_agent("test")
+
+    assert ok is False
