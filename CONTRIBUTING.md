@@ -50,3 +50,14 @@ PRs should include:
 
 - Unit and integration tests are in `tests/unit` and `tests/integration`.
 - E2E tests are in `tests/e2e`; some require opt-in env vars.
+- GPT-SoVITS E2E 使用预生成夹具，首次执行：
+
+```bash
+.codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh
+```
+
+- 运行 GPT-SoVITS 夹具 E2E：
+
+```bash
+ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 pytest tests/e2e/test_pipeline_tts_audio.py -q
+```

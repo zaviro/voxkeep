@@ -3,6 +3,7 @@ set -euo pipefail
 
 BASE_URL="http://127.0.0.1:9880"
 PROJECT_ROOT="$(pwd)"
+GPTSOVITS_WORKSPACE="${HOME%/}/workspace/gptsovits"
 TEXT=""
 TEXT_LANG=""
 REF_AUDIO=""
@@ -15,7 +16,7 @@ OUTPUT=""
 START_SERVICE=0
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Run GPT-SoVITS TTS request via HTTP API and save output audio.
 
 Usage:
@@ -28,17 +29,31 @@ Usage:
     [--output outputs/result.wav] \
     [--base-url http://127.0.0.1:9880] \
     [--project-root /path/to/repo] \
+    [--gptsovits-workspace /path/to/gptsovits] \
     [--text-split-method cut5] \
     [--batch-size 1] \
     [--media-type wav] \
     [--start-service]
-EOF
+
+Notes:
+  - Supports API v2 endpoint POST /tts (preferred).
+  - Falls back to legacy API v1 endpoint POST / when /tts is unavailable.
+USAGE
 }
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "Missing dependency: $1" >&2
     exit 1
+  fi
+}
+
+resolve_local_path() {
+  local input="$1"
+  if [[ "$input" == /* ]]; then
+    printf '%s\n' "$input"
+  else
+    printf '%s/%s\n' "${PROJECT_ROOT%/}" "$input"
   fi
 }
 
@@ -52,18 +67,73 @@ map_ref_audio_path() {
   fi
 
   if [[ "$candidate" != /* ]]; then
-    candidate="${PROJECT_ROOT%/}/${candidate}"
+    candidate="$(resolve_local_path "$candidate")"
   fi
 
   if [[ -f "$candidate" ]]; then
-    local inputs_dir="${PROJECT_ROOT%/}/inputs/"
-    if [[ "$candidate" == "${inputs_dir}"* ]]; then
-      printf '/workspace/reference/%s\n' "${candidate#${inputs_dir}}"
+    local project_inputs="${PROJECT_ROOT%/}/inputs/"
+    local gptsovits_inputs="${GPTSOVITS_WORKSPACE%/}/inputs/"
+
+    if [[ "$candidate" == "${project_inputs}"* ]]; then
+      printf '/workspace/reference/%s\n' "${candidate#${project_inputs}}"
+      return
+    fi
+
+    if [[ "$candidate" == "${gptsovits_inputs}"* ]]; then
+      printf '/workspace/reference/%s\n' "${candidate#${gptsovits_inputs}}"
       return
     fi
   fi
 
   printf '%s\n' "$input"
+}
+
+request_v2_tts() {
+  local payload="$1"
+  local tmp_file="$2"
+  local err_file="$3"
+
+  curl -sS \
+    -X POST "${BASE_URL%/}/tts" \
+    -H 'content-type: application/json' \
+    --data "$payload" \
+    -o "$tmp_file" \
+    -w '%{http_code}' 2>"$err_file"
+}
+
+request_v1_tts() {
+  local payload="$1"
+  local tmp_file="$2"
+  local err_file="$3"
+
+  curl -sS \
+    -X POST "${BASE_URL%/}/" \
+    -H 'content-type: application/json' \
+    --data "$payload" \
+    -o "$tmp_file" \
+    -w '%{http_code}' 2>"$err_file"
+}
+
+looks_like_audio_file() {
+  local input_file="$1"
+  python - "$input_file" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+data = path.read_bytes() if path.exists() else b""
+
+if len(data) < 128:
+    raise SystemExit(1)
+
+if data.startswith((b"RIFF", b"OggS", b"ID3", b"\xff\xf1", b"\xff\xf9")):
+    raise SystemExit(0)
+
+if data.lstrip().startswith(b"{"):
+    raise SystemExit(1)
+
+raise SystemExit(0)
+PY
 }
 
 while [[ $# -gt 0 ]]; do
@@ -112,6 +182,10 @@ while [[ $# -gt 0 ]]; do
       PROJECT_ROOT="${2:-}"
       shift 2
       ;;
+    --gptsovits-workspace)
+      GPTSOVITS_WORKSPACE="${2:-}"
+      shift 2
+      ;;
     --start-service)
       START_SERVICE=1
       shift 1
@@ -144,22 +218,23 @@ fi
 
 if [[ "$START_SERVICE" -eq 1 ]]; then
   require_cmd docker
-  if [[ ! -f "${PROJECT_ROOT%/}/docker-compose.yml" ]]; then
-    echo "docker-compose.yml not found under --project-root: $PROJECT_ROOT" >&2
+  if [[ -f "${GPTSOVITS_WORKSPACE%/}/docker-compose.yml" ]]; then
+    (cd "$GPTSOVITS_WORKSPACE" && docker compose up -d >/dev/null)
+  elif [[ -f "${PROJECT_ROOT%/}/docker-compose.yml" ]]; then
+    (cd "$PROJECT_ROOT" && docker compose up -d >/dev/null)
+  else
+    echo "docker-compose.yml not found under --gptsovits-workspace or --project-root" >&2
     exit 1
   fi
-  (cd "$PROJECT_ROOT" && docker compose up -d >/dev/null)
 fi
 
 if [[ "$REF_AUDIO" != /workspace/* ]]; then
-  local_ref="$REF_AUDIO"
-  if [[ "$local_ref" != /* ]]; then
-    local_ref="${PROJECT_ROOT%/}/${local_ref}"
-  fi
+  local_ref="$(resolve_local_path "$REF_AUDIO")"
   if [[ ! -f "$local_ref" ]]; then
     echo "Reference audio not found: $local_ref" >&2
     exit 1
   fi
+  REF_AUDIO="$local_ref"
 fi
 
 REF_AUDIO_API_PATH="$(map_ref_audio_path "$REF_AUDIO")"
@@ -172,8 +247,11 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT")"
 TMP_FILE="$(mktemp "${OUTPUT}.tmp.XXXX")"
+ERR_FILE_V2="$(mktemp)"
+ERR_FILE_V1="$(mktemp)"
+trap 'rm -f "$TMP_FILE" "$ERR_FILE_V2" "$ERR_FILE_V1"' EXIT
 
-PAYLOAD="$(
+PAYLOAD_V2="$(
   jq -n \
     --arg text "$TEXT" \
     --arg text_lang "$TEXT_LANG" \
@@ -196,24 +274,53 @@ PAYLOAD="$(
     }'
 )"
 
-HTTP_CODE="$(
-  curl -sS \
-    -X POST "${BASE_URL%/}/tts" \
-    -H 'content-type: application/json' \
-    --data "$PAYLOAD" \
-    -o "$TMP_FILE" \
-    -w '%{http_code}'
+PAYLOAD_V1="$(
+  jq -n \
+    --arg text "$TEXT" \
+    --arg text_language "$TEXT_LANG" \
+    --arg refer_wav_path "$REF_AUDIO_API_PATH" \
+    --arg prompt_language "$PROMPT_LANG" \
+    --arg prompt_text "$PROMPT_TEXT" \
+    '{
+      text: $text,
+      text_language: $text_language,
+      refer_wav_path: $refer_wav_path,
+      prompt_language: $prompt_language,
+      prompt_text: $prompt_text
+    }'
 )"
 
-if [[ "$HTTP_CODE" != "200" ]]; then
-  echo "TTS request failed, HTTP $HTTP_CODE" >&2
-  if [[ -s "$TMP_FILE" ]]; then
-    cat "$TMP_FILE" >&2
-  fi
-  rm -f "$TMP_FILE"
-  exit 1
+HTTP_CODE_V2="$(request_v2_tts "$PAYLOAD_V2" "$TMP_FILE" "$ERR_FILE_V2" || true)"
+if [[ "$HTTP_CODE_V2" == "200" ]] && looks_like_audio_file "$TMP_FILE"; then
+  mv "$TMP_FILE" "$OUTPUT"
+  echo "Saved (api-v2): $OUTPUT"
+  ls -lh "$OUTPUT"
+  exit 0
 fi
 
-mv "$TMP_FILE" "$OUTPUT"
-echo "Saved: $OUTPUT"
-ls -lh "$OUTPUT"
+HTTP_CODE_V1="$(request_v1_tts "$PAYLOAD_V1" "$TMP_FILE" "$ERR_FILE_V1" || true)"
+if [[ "$HTTP_CODE_V1" == "200" ]] && looks_like_audio_file "$TMP_FILE"; then
+  mv "$TMP_FILE" "$OUTPUT"
+  echo "Saved (api-v1): $OUTPUT"
+  ls -lh "$OUTPUT"
+  exit 0
+fi
+
+echo "TTS request failed via both endpoints." >&2
+echo "  base_url: ${BASE_URL%/}" >&2
+echo "  /tts http: ${HTTP_CODE_V2:-N/A}" >&2
+if [[ -s "$ERR_FILE_V2" ]]; then
+  echo "  /tts curl error:" >&2
+  sed -n '1,5p' "$ERR_FILE_V2" >&2
+fi
+if [[ -s "$TMP_FILE" ]]; then
+  echo "  /tts or / body (last response):" >&2
+  sed -n '1,40p' "$TMP_FILE" >&2
+fi
+echo "  / http: ${HTTP_CODE_V1:-N/A}" >&2
+if [[ -s "$ERR_FILE_V1" ]]; then
+  echo "  / curl error:" >&2
+  sed -n '1,5p' "$ERR_FILE_V1" >&2
+fi
+
+exit 1

@@ -13,4 +13,6 @@ Generate/update these fixtures once with:
 .codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh
 ```
 
+The generator will normalize files to `16kHz` mono wav for stable pipeline behavior.
+
 The E2E test suite consumes these files directly and does not synthesize audio during test execution.

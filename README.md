@@ -108,6 +108,21 @@ make precommit
 - `make typecheck` 当前通过 `pyright` 做静态类型检查（CI 先以非阻塞模式观察）。
 - `make test-cov` 输出终端覆盖率摘要并生成 `coverage.xml`。
 
+### GPT-SoVITS E2E 夹具规范
+
+- `tests/e2e/test_pipeline_tts_audio.py` 只读取固定夹具音频，不会在测试时调用 TTS。
+- 首次或需要更新夹具时，执行：
+
+```bash
+.codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh
+```
+
+- 仅运行 GPT-SoVITS 夹具 E2E：
+
+```bash
+ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 pytest tests/e2e/test_pipeline_tts_audio.py -q
+```
+
 检查 runtime-ai 可用性：
 
 ```bash
