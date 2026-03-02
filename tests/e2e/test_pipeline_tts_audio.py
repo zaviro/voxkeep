@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import replace
-import math
+import os
+from pathlib import Path
 import queue
+import subprocess
 import threading
+import wave
 
 import numpy as np
 import pytest
@@ -25,18 +28,16 @@ from asr_ol.services.audio_bus import AudioBus
 
 
 class FakeStreamingAsrEngine:
-    def __init__(self, transcript: str | None):
+    def __init__(self, transcript: str):
         self.final_queue: queue.Queue[AsrFinalEvent] = queue.Queue()
         self._transcript = transcript
-        self._started = False
-        self._closed = False
         self._emitted = False
 
     def start(self) -> None:
-        self._started = True
+        return
 
     def submit_frame(self, frame: ProcessedFrame) -> None:
-        if self._emitted or not self._transcript:
+        if self._emitted:
             return
         if float(np.max(np.abs(frame.pcm_f32))) < 0.02:
             return
@@ -52,35 +53,26 @@ class FakeStreamingAsrEngine:
         )
 
     def close(self) -> None:
-        self._closed = True
+        return
 
 
-def _synthesize_tts_pcm(text: str, sample_rate: int) -> np.ndarray:
-    cleaned = text.strip()
-    if not cleaned:
-        return np.zeros(sample_rate // 4, dtype=np.float32)
+def _load_wav_pcm_f32(path: Path) -> tuple[np.ndarray, int]:
+    with wave.open(str(path), "rb") as wf:
+        channels = wf.getnchannels()
+        sample_rate = wf.getframerate()
+        sample_width = wf.getsampwidth()
+        raw = wf.readframes(wf.getnframes())
 
-    chunks: list[np.ndarray] = []
-    char_ms = 90
-    gap_ms = 15
-    for idx, char in enumerate(cleaned):
-        freq = 180.0 + (ord(char) % 40) * 9.0 + (idx % 3) * 7.0
-        sample_count = max(1, int(sample_rate * (char_ms / 1000.0)))
-        t = np.arange(sample_count, dtype=np.float32) / float(sample_rate)
-        wave = 0.22 * np.sin(2.0 * math.pi * freq * t)
-        wave += 0.08 * np.sin(2.0 * math.pi * (freq * 2.0) * t)
+    if sample_width == 2:
+        pcm = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    elif sample_width == 4:
+        pcm = np.frombuffer(raw, dtype=np.int32).astype(np.float32) / 2147483648.0
+    else:
+        raise ValueError(f"unsupported sample width: {sample_width}")
 
-        fade_len = min(80, sample_count // 4)
-        if fade_len > 0:
-            ramp = np.linspace(0.0, 1.0, num=fade_len, endpoint=True, dtype=np.float32)
-            wave[:fade_len] *= ramp
-            wave[-fade_len:] *= ramp[::-1]
-
-        chunks.append(wave.astype(np.float32))
-        gap = np.zeros(int(sample_rate * (gap_ms / 1000.0)), dtype=np.float32)
-        chunks.append(gap)
-
-    return np.concatenate(chunks, dtype=np.float32)
+    if channels > 1:
+        pcm = pcm.reshape(-1, channels)[:, 0]
+    return pcm.astype(np.float32), int(sample_rate)
 
 
 def _chunk_raw_audio(
@@ -111,14 +103,63 @@ def _chunk_raw_audio(
     return chunks
 
 
-@pytest.mark.parametrize(
-    ("text", "expect_command"),
-    [
-        ("ni hao tts", True),
-        ("   ", False),
-    ],
-)
-def test_tts_audio_stream_end_to_end(text: str, expect_command: bool, app_config: AppConfig):
+def _generate_tts_audio(text: str, tmp_path: Path) -> Path:
+    if os.environ.get("ASR_OL_RUN_GPTSOVITS_E2E") != "1":
+        pytest.skip("set ASR_OL_RUN_GPTSOVITS_E2E=1 to run GPT-SoVITS TTS E2E")
+
+    script = Path(".codex/skills/gptsovits-cli-tts/scripts/tts_request.sh")
+    if not script.exists():
+        pytest.skip("gptsovits-cli-tts skill script not found")
+
+    ref_audio = os.environ.get("ASR_OL_TTS_REF_AUDIO", "").strip()
+    prompt_text = os.environ.get("ASR_OL_TTS_PROMPT_TEXT", "").strip()
+    text_lang = os.environ.get("ASR_OL_TTS_TEXT_LANG", "zh").strip() or "zh"
+    prompt_lang = os.environ.get("ASR_OL_TTS_PROMPT_LANG", text_lang).strip() or text_lang
+
+    if not ref_audio or not prompt_text:
+        pytest.skip("ASR_OL_TTS_REF_AUDIO and ASR_OL_TTS_PROMPT_TEXT are required")
+
+    output = tmp_path / "gptsovits-e2e.wav"
+    cmd = [
+        str(script),
+        "--text",
+        text,
+        "--text-lang",
+        text_lang,
+        "--ref-audio",
+        ref_audio,
+        "--prompt-lang",
+        prompt_lang,
+        "--prompt-text",
+        prompt_text,
+        "--output",
+        str(output),
+    ]
+
+    if os.environ.get("ASR_OL_TTS_START_SERVICE") == "1":
+        cmd.append("--start-service")
+
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"gptsovits tts request failed\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}\n"
+        )
+
+    if not output.exists() or output.stat().st_size == 0:
+        raise RuntimeError("gptsovits tts output file missing or empty")
+
+    return output
+
+
+def test_pipeline_end_to_end_with_gptsovits_audio(tmp_path: Path, app_config: AppConfig):
+    expected_text = "你好，流水线端到端测试"
+    audio_path = _generate_tts_audio(expected_text, tmp_path)
+
     cfg = replace(
         app_config, frame_ms=20, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
     )
@@ -144,8 +185,7 @@ def test_tts_audio_stream_end_to_end(text: str, expect_command: bool, app_config
         stop_event=stop_event,
     )
 
-    transcript = text.strip() or None
-    engine = FakeStreamingAsrEngine(transcript=transcript)
+    engine = FakeStreamingAsrEngine(transcript=expected_text)
     asr_worker = AsrWorker(
         in_queue=asr_audio_q,
         final_in_queue=engine.final_queue,
@@ -170,7 +210,12 @@ def test_tts_audio_stream_end_to_end(text: str, expect_command: bool, app_config
         default_action="inject_text",
     )
 
-    tts_pcm = _synthesize_tts_pcm(text, cfg.sample_rate)
+    tts_pcm, tts_sr = _load_wav_pcm_f32(audio_path)
+    if tts_sr != cfg.sample_rate:
+        pytest.skip(
+            f"generated sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
+        )
+
     ts_base = 100.0
     raw_chunks = _chunk_raw_audio(
         tts_pcm,
@@ -203,14 +248,9 @@ def test_tts_audio_stream_end_to_end(text: str, expect_command: bool, app_config
         if not capture_cmd_q.empty():
             break
 
-    if expect_command:
-        cmd = capture_cmd_q.get_nowait()
-        assert cmd.action == "inject_text"
-        assert cmd.keyword == "alexa"
-        assert cmd.text == text.strip()
-        assert storage_q.qsize() >= 2
-        assert asr_event_bus.qsize() == 1
-    else:
-        assert capture_cmd_q.empty()
-        assert storage_q.empty()
-        assert asr_event_bus.empty()
+    cmd = capture_cmd_q.get_nowait()
+    assert cmd.action == "inject_text"
+    assert cmd.keyword == "alexa"
+    assert cmd.text == expected_text
+    assert storage_q.qsize() >= 2
+    assert asr_event_bus.qsize() == 1
