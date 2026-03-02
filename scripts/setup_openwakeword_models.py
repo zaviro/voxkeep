@@ -1,3 +1,5 @@
+"""Download and verify openwakeword ONNX assets used by runtime-ai mode."""
+
 from __future__ import annotations
 
 import argparse
@@ -140,6 +142,7 @@ def _verify_onnx_runtime(model_names: Sequence[str]) -> None:
 
 
 def main() -> int:
+    """Prepare openwakeword assets and validate ONNX inference."""
     args = _build_parser().parse_args()
     print(f"python={platform.python_version()}")
     model_names = _resolve_model_names(cli_models=args.model, config_path=args.config)

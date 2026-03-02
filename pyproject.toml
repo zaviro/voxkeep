@@ -35,8 +35,21 @@ target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F"]
-ignore = ["E501"]
+select = ["E", "F", "D"]
+ignore = ["E501", "D203", "D213"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"src/asr_ol/__init__.py" = ["D"]
+"src/asr_ol/__main__.py" = ["D"]
+"src/asr_ol/api/**" = ["D"]
+"src/asr_ol/agents/**" = ["D"]
+"src/asr_ol/cli/**" = ["D"]
+"src/asr_ol/infra/**" = ["D"]
+"src/asr_ol/tools/**" = ["D"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

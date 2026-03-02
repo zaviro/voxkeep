@@ -7,8 +7,13 @@ from typing import Any, Protocol
 
 import numpy as np
 from asr_ol.core.events import ProcessedFrame, VadEvent
+from asr_ol.core.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
+
+
+_ENERGY_TO_SCORE_SCALE = 20.0
+_FRAME_GET_TIMEOUT_S = 0.1
 
 
 class VadScorer(Protocol):
@@ -21,7 +26,7 @@ class EnergyVadScorer:
         if frame.pcm_f32.size == 0:
             return 0.0
         energy = float((frame.pcm_f32**2).mean())
-        return min(1.0, energy * 20.0)
+        return min(1.0, energy * _ENERGY_TO_SCORE_SCALE)
 
 
 class SileroVadScorer:
@@ -112,11 +117,14 @@ class SileroVadWorker:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
+    def is_alive(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
     def _run(self) -> None:
         logger.info("vad worker started")
         while not self._stop_event.is_set() or not self._in_queue.empty():
             try:
-                frame = self._in_queue.get(timeout=0.1)
+                frame = self._in_queue.get(timeout=_FRAME_GET_TIMEOUT_S)
             except queue.Empty:
                 continue
 
@@ -144,8 +152,10 @@ class SileroVadWorker:
         logger.info("vad worker stopped")
 
     def _emit(self, event: VadEvent) -> None:
-        try:
-            self._out_queue.put_nowait(event)
+        if put_nowait_or_drop(
+            self._out_queue,
+            event,
+            logger=logger,
+            warning=f"vad queue full; dropping event={event.event_type}",
+        ):
             logger.info("vad_event=%s ts=%.3f", event.event_type, event.ts)
-        except queue.Full:
-            logger.warning("vad queue full; dropping event=%s", event.event_type)

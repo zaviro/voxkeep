@@ -14,6 +14,9 @@ from asr_ol.core.events import StorageRecord
 logger = logging.getLogger(__name__)
 
 
+_QUEUE_GET_TIMEOUT_S = 0.1
+
+
 class StorageWorker:
     def __init__(
         self,
@@ -51,6 +54,9 @@ class StorageWorker:
     def join(self, timeout: float | None = None) -> None:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
+
+    def is_alive(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
 
     def _run(self) -> None:
         self._sqlite_path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,7 +104,7 @@ class StorageWorker:
         try:
             while not self._stop_event.is_set() or not self._in_queue.empty():
                 try:
-                    record = self._in_queue.get(timeout=0.1)
+                    record = self._in_queue.get(timeout=_QUEUE_GET_TIMEOUT_S)
                 except queue.Empty:
                     flush_pending()
                     continue

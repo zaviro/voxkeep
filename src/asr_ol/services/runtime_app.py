@@ -1,10 +1,11 @@
+"""Application runtime composition root and lifecycle orchestration."""
+
 from __future__ import annotations
 
 import logging
 import queue
 import threading
 import time
-from typing import Protocol
 
 from asr_ol.infra.asr.funasr_ws import FunAsrWsEngine
 from asr_ol.services.asr_worker import AsrWorker
@@ -33,16 +34,14 @@ from asr_ol.infra.wake.openwakeword_worker import OpenWakeWordWorker
 logger = logging.getLogger(__name__)
 
 
-class AudioSourceLike(Protocol):
-    def start(self) -> None:
-        raise NotImplementedError
-
-    def stop(self) -> None:
-        raise NotImplementedError
+_RUN_FOREVER_POLL_S = 0.2
 
 
 class AppRuntime:
+    """Assemble and coordinate the full audio-to-action runtime pipeline."""
+
     def __init__(self, cfg: AppConfig):
+        """Create queues, components, workers, and lifecycle plans."""
         self._cfg = cfg
         self.stop_event = threading.Event()
 
@@ -159,17 +158,29 @@ class AppRuntime:
         for handle in self._shutdown_workers:
             handle.worker.join(timeout=handle.join_timeout_s)
 
+    def _find_unhealthy_workers(self) -> tuple[str, ...]:
+        return tuple(
+            handle.name for handle in self._startup_workers if not handle.worker.is_alive()
+        )
+
     def start(self) -> None:
+        """Start all workers and audio capture in dependency-safe order."""
         logger.info("runtime starting")
         self._start_workers()
         self.audio_source.start()
         logger.info("runtime started")
 
     def run_forever(self) -> None:
+        """Block until shutdown while monitoring worker health."""
         while not self.stop_event.is_set():
-            time.sleep(0.2)
+            unhealthy_workers = self._find_unhealthy_workers()
+            if unhealthy_workers:
+                names = ", ".join(unhealthy_workers)
+                raise RuntimeError(f"worker stopped unexpectedly: {names}")
+            time.sleep(_RUN_FOREVER_POLL_S)
 
     def stop(self) -> None:
+        """Trigger graceful shutdown and join all workers."""
         logger.info("runtime stopping")
         self.stop_event.set()
 

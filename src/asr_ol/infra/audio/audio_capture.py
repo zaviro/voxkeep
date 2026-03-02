@@ -9,6 +9,7 @@ from typing import Any
 from asr_ol.core.audio_source import AudioSource
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import RawAudioChunk
+from asr_ol.core.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +38,11 @@ class SoundDeviceAudioSource(AudioSource):
             channels=self._cfg.channels,
             ts=time.time(),
         )
-        try:
-            self._out_queue.put_nowait(chunk)
-        except queue.Full:
-            with self._lock:
-                self._dropped_chunks += 1
+        put_nowait_or_drop(self._out_queue, chunk, on_drop=self._increment_dropped_chunks)
+
+    def _increment_dropped_chunks(self) -> None:
+        with self._lock:
+            self._dropped_chunks += 1
 
     def start(self) -> None:
         if self._stream is not None:

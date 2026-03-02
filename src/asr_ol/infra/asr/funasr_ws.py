@@ -12,8 +12,12 @@ import uuid
 from asr_ol.core.asr_engine import ASREngine
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import AsrFinalEvent, ProcessedFrame
+from asr_ol.core.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
+
+
+_FRAME_POLL_TIMEOUT_S = 0.1
 
 
 class FunAsrWsEngine(ASREngine):
@@ -35,10 +39,12 @@ class FunAsrWsEngine(ASREngine):
         self._thread.start()
 
     def submit_frame(self, frame: ProcessedFrame) -> None:
-        try:
-            self._in_queue.put_nowait(frame)
-        except queue.Full:
-            logger.warning("asr input queue full; dropping frame_id=%s", frame.frame_id)
+        put_nowait_or_drop(
+            self._in_queue,
+            frame,
+            logger=logger,
+            warning=f"asr input queue full; dropping frame_id={frame.frame_id}",
+        )
 
     def close(self) -> None:
         # Engine lifecycle follows stop_event; method kept for interface symmetry.
@@ -102,7 +108,7 @@ class FunAsrWsEngine(ASREngine):
     async def _sender(self, ws: Any) -> None:
         await ws.send(json.dumps(self._build_ws_config(is_speaking=True)))
         while not self._stop_event.is_set() or not self._in_queue.empty():
-            frame = await asyncio.to_thread(self._get_frame, 0.1)
+            frame = await asyncio.to_thread(self._get_frame, _FRAME_POLL_TIMEOUT_S)
             if frame is None:
                 continue
             await ws.send(frame.data_int16)
@@ -135,10 +141,12 @@ class FunAsrWsEngine(ASREngine):
                 end_ts=end_ts,
                 is_final=True,
             )
-            try:
-                self._final_queue.put_nowait(event)
-            except queue.Full:
-                logger.warning("asr final queue full; dropping segment_id=%s", segment_id)
+            put_nowait_or_drop(
+                self._final_queue,
+                event,
+                logger=logger,
+                warning=f"asr final queue full; dropping segment_id={segment_id}",
+            )
 
     def _get_frame(self, timeout: float) -> ProcessedFrame | None:
         try:

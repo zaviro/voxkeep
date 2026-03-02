@@ -9,8 +9,12 @@ import time
 from asr_ol.agents.capture_fsm import CaptureFSM, CaptureWindow
 from asr_ol.agents.transcript_extractor import TranscriptExtractor
 from asr_ol.core.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
+from asr_ol.core.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
+
+
+_IDLE_SLEEP_S = 0.01
 
 
 class CaptureWorker:
@@ -49,6 +53,9 @@ class CaptureWorker:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
+    def is_alive(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
     def _run(self) -> None:
         logger.info("capture worker started")
         while (
@@ -60,7 +67,7 @@ class CaptureWorker:
             had_event = self._consume_once()
             self._fsm.tick()
             if not had_event:
-                time.sleep(0.01)
+                time.sleep(_IDLE_SLEEP_S)
 
         logger.info("capture worker stopped")
 
@@ -111,8 +118,12 @@ class CaptureWorker:
             start_ts=start_ts,
             end_ts=end_ts,
         )
-        try:
-            self._out_queue.put_nowait(command)
+        if put_nowait_or_drop(
+            self._out_queue,
+            command,
+            logger=logger,
+            warning=f"capture out queue full; dropping session_id={command.session_id}",
+        ):
             logger.info(
                 "capture finalized session_id=%s keyword=%s action=%s text=%s",
                 command.session_id,
@@ -120,8 +131,7 @@ class CaptureWorker:
                 command.action,
                 command.text,
             )
-        except queue.Full:
-            logger.warning("capture out queue full; dropping session_id=%s", command.session_id)
+        else:
             return
 
         record = StorageRecord(
@@ -132,9 +142,9 @@ class CaptureWorker:
             is_final=True,
             created_at=datetime.now(tz=timezone.utc).isoformat(),
         )
-        try:
-            self._storage_queue.put_nowait(record)
-        except queue.Full:
-            logger.warning(
-                "storage queue full; dropping capture storage session_id=%s", command.session_id
-            )
+        put_nowait_or_drop(
+            self._storage_queue,
+            record,
+            logger=logger,
+            warning=f"storage queue full; dropping capture storage session_id={command.session_id}",
+        )

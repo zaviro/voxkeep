@@ -1,3 +1,5 @@
+"""Application configuration loading, merging, and validation."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,6 +12,8 @@ import yaml
 
 @dataclass(slots=True, frozen=True)
 class WakeRuleConfig:
+    """Wake keyword routing rule."""
+
     keyword: str
     enabled: bool
     threshold: float
@@ -18,6 +22,8 @@ class WakeRuleConfig:
 
 @dataclass(slots=True, frozen=True)
 class AppConfig:
+    """Immutable runtime configuration snapshot."""
+
     sample_rate: int
     channels: int
     frame_ms: int
@@ -45,6 +51,7 @@ class AppConfig:
     log_level: str
 
     def __post_init__(self) -> None:
+        """Validate configuration values after dataclass construction."""
         _require_positive_int("sample_rate", self.sample_rate)
         _require_positive_int("channels", self.channels)
         _require_positive_int("frame_ms", self.frame_ms)
@@ -76,15 +83,18 @@ class AppConfig:
 
     @property
     def frame_samples(self) -> int:
+        """Return frame size in samples."""
         return int(self.sample_rate * (self.frame_ms / 1000.0))
 
     @property
     def asr_ws_url(self) -> str:
+        """Return websocket endpoint URL assembled from FunASR settings."""
         schema = "wss" if self.funasr_use_ssl else "ws"
         return f"{schema}://{self.funasr_host}:{self.funasr_port}{self.funasr_path}"
 
     @property
     def enabled_wake_rules(self) -> tuple[WakeRuleConfig, ...]:
+        """Return wake rules currently enabled."""
         return tuple(rule for rule in self.wake_rules if rule.enabled)
 
 
@@ -319,6 +329,15 @@ def _parse_openclaw_action(data: dict[str, Any]) -> tuple[tuple[str, ...], float
 
 
 def load_config(path: str | os.PathLike[str]) -> AppConfig:
+    """Load runtime config from defaults, YAML, and environment variables.
+
+    Args:
+        path: YAML file path. Missing file falls back to defaults+env only.
+
+    Returns:
+        A validated immutable AppConfig instance.
+
+    """
     resolved = Path(path)
     data = _deep_copy_dict(_DEFAULTS)
 

@@ -1,3 +1,5 @@
+"""Runtime AI dependency and model readiness checks."""
+
 from __future__ import annotations
 
 import importlib
@@ -88,6 +90,7 @@ def _check_silero_runtime() -> tuple[bool, str]:
 
 
 def main() -> int:
+    """Run runtime-AI diagnostics and return process exit code."""
     print(f"python={platform.python_version()}")
     failed = False
 

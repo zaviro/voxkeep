@@ -1,3 +1,5 @@
+"""ASR worker that bridges audio frames, engine, and event fanout."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -7,11 +9,17 @@ import threading
 
 from asr_ol.core.asr_engine import ASREngine
 from asr_ol.core.events import AsrFinalEvent, ProcessedFrame, StorageRecord
+from asr_ol.core.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 
 
+_AUDIO_QUEUE_GET_TIMEOUT_S = 0.05
+
+
 class AsrWorker:
+    """Consume audio frames and fan out finalized ASR events."""
+
     def __init__(
         self,
         in_queue: queue.Queue[ProcessedFrame],
@@ -23,6 +31,7 @@ class AsrWorker:
         engine: ASREngine,
         store_final_only: bool,
     ) -> None:
+        """Initialize ASR worker dependencies and queues."""
         self._in_queue = in_queue
         self._final_in_queue = final_in_queue
         self._out_queue = out_queue
@@ -34,6 +43,7 @@ class AsrWorker:
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
+        """Start the engine and background worker thread."""
         if self._thread is not None:
             return
         self._engine.start()
@@ -41,11 +51,16 @@ class AsrWorker:
         self._thread.start()
 
     def join(self, timeout: float | None = None) -> None:
+        """Join worker thread and underlying engine if join is supported."""
         if self._thread is not None:
             self._thread.join(timeout=timeout)
         join_fn = getattr(self._engine, "join", None)
         if callable(join_fn):
             join_fn(timeout=timeout)
+
+    def is_alive(self) -> bool:
+        """Return whether the worker thread is currently alive."""
+        return self._thread is not None and self._thread.is_alive()
 
     def _run(self) -> None:
         logger.info("asr worker started")
@@ -64,7 +79,7 @@ class AsrWorker:
 
     def _submit_audio_once(self) -> None:
         try:
-            frame = self._in_queue.get(timeout=0.05)
+            frame = self._in_queue.get(timeout=_AUDIO_QUEUE_GET_TIMEOUT_S)
         except queue.Empty:
             return
         self._engine.submit_frame(frame)
@@ -95,7 +110,6 @@ class AsrWorker:
 
     @staticmethod
     def _put_maybe_drop(q: queue.Queue, event: object, name: str) -> None:
-        try:
-            q.put_nowait(event)
-        except queue.Full:
-            logger.warning("queue full: dropping event from %s", name)
+        put_nowait_or_drop(
+            q, event, logger=logger, warning=f"queue full: dropping event from {name}"
+        )

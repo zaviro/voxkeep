@@ -9,8 +9,13 @@ from typing import Any, Mapping, Protocol, Sequence
 import numpy as np
 from asr_ol.core.config import WakeRuleConfig
 from asr_ol.core.events import ProcessedFrame, WakeEvent
+from asr_ol.core.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
+
+
+_PCM_I16_SCALE = 32768.0
+_FRAME_GET_TIMEOUT_S = 0.1
 
 
 class WakeScorer(Protocol):
@@ -59,7 +64,7 @@ class OpenWakeWordScorer:
         return cls(model, model_names=selected_models)
 
     def score(self, frame: ProcessedFrame) -> dict[str, float]:
-        pcm_i16 = np.clip(frame.pcm_f32 * 32768.0, -32768, 32767).astype(np.int16)
+        pcm_i16 = np.clip(frame.pcm_f32 * _PCM_I16_SCALE, -32768, 32767).astype(np.int16)
         try:
             raw = self._model.predict(pcm_i16)
         except Exception as exc:
@@ -136,21 +141,23 @@ class OpenWakeWordWorker:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
 
+    def is_alive(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
     def _run(self) -> None:
         logger.info("wake worker started")
         while not self._stop_event.is_set() or not self._in_queue.empty():
             try:
-                frame = self._in_queue.get(timeout=0.1)
+                frame = self._in_queue.get(timeout=_FRAME_GET_TIMEOUT_S)
             except queue.Empty:
                 continue
 
             event = self._detect(frame)
             if event is not None:
-                try:
-                    self._out_queue.put_nowait(event)
+                if put_nowait_or_drop(
+                    self._out_queue, event, logger=logger, warning="wake queue full; dropping event"
+                ):
                     logger.info("wake detected score=%.3f keyword=%s", event.score, event.keyword)
-                except queue.Full:
-                    logger.warning("wake queue full; dropping event")
 
         logger.info("wake worker stopped")
 

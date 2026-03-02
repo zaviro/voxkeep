@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Any
-
 import pytest
 
 from asr_ol.core.config import AppConfig, WakeRuleConfig
@@ -50,11 +47,3 @@ def app_config() -> AppConfig:
         openclaw_timeout_s=20.0,
         log_level="INFO",
     )
-
-
-@pytest.fixture
-def app_config_factory(app_config: AppConfig):
-    def _factory(**overrides: Any) -> AppConfig:
-        return replace(app_config, **overrides)
-
-    return _factory

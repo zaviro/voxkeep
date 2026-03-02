@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 import threading
 
+import pytest
+
 from asr_ol.core.config import AppConfig
 from asr_ol.services.runtime_app import AppRuntime
 
@@ -11,12 +13,18 @@ class _CallRecorder:
     def __init__(self, name: str, calls: list[str]) -> None:
         self._name = name
         self._calls = calls
+        self._alive = False
 
     def start(self) -> None:
+        self._alive = True
         self._calls.append(f"start:{self._name}")
 
     def join(self, timeout: float | None = None) -> None:
+        self._alive = False
         self._calls.append(f"join:{self._name}:{timeout}")
+
+    def is_alive(self) -> bool:
+        return self._alive
 
 
 class _AudioSourceRecorder(_CallRecorder):
@@ -160,3 +168,14 @@ def test_runtime_init_wires_asr_and_capture_queues(monkeypatch, app_config: AppC
     assert runtime.capture_worker._asr_queue is runtime.capture_asr_queue
     assert runtime.storage_worker._in_queue is runtime.storage_queue
     assert runtime.raw_queue.maxsize == 8
+
+
+def test_run_forever_raises_when_worker_is_unhealthy():
+    calls: list[str] = []
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime.stop_event = threading.Event()
+    worker = _CallRecorder("asr_worker", calls)
+    runtime._startup_workers = (runtime._worker_handle("asr_worker", worker, 1),)
+
+    with pytest.raises(RuntimeError, match="asr_worker"):
+        runtime.run_forever()
