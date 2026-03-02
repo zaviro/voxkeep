@@ -44,6 +44,7 @@ class AppRuntime:
         """Create queues, components, workers, and lifecycle plans."""
         self._cfg = cfg
         self.stop_event = threading.Event()
+        self._fatal_error: str | None = None
 
         self.raw_queue: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.max_queue_size)
         self.wake_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
@@ -163,6 +164,11 @@ class AppRuntime:
             handle.name for handle in self._startup_workers if not handle.worker.is_alive()
         )
 
+    @property
+    def fatal_error(self) -> str | None:
+        """Return fatal runtime error message when one has occurred."""
+        return self._fatal_error
+
     def start(self) -> None:
         """Start all workers and audio capture in dependency-safe order."""
         logger.info("runtime starting")
@@ -176,7 +182,10 @@ class AppRuntime:
             unhealthy_workers = self._find_unhealthy_workers()
             if unhealthy_workers:
                 names = ", ".join(unhealthy_workers)
-                raise RuntimeError(f"worker stopped unexpectedly: {names}")
+                self._fatal_error = f"worker stopped unexpectedly: {names}"
+                logger.error(self._fatal_error)
+                self.stop_event.set()
+                return
             time.sleep(_RUN_FOREVER_POLL_S)
 
     def stop(self) -> None:

@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import replace
 import threading
 
-import pytest
-
 from asr_ol.core.config import AppConfig
 from asr_ol.services.runtime_app import AppRuntime
 
@@ -174,8 +172,11 @@ def test_run_forever_raises_when_worker_is_unhealthy():
     calls: list[str] = []
     runtime = AppRuntime.__new__(AppRuntime)
     runtime.stop_event = threading.Event()
+    runtime._fatal_error = None
     worker = _CallRecorder("asr_worker", calls)
     runtime._startup_workers = (runtime._worker_handle("asr_worker", worker, 1),)
 
-    with pytest.raises(RuntimeError, match="asr_worker"):
-        runtime.run_forever()
+    runtime.run_forever()
+
+    assert runtime.stop_event.is_set() is True
+    assert runtime.fatal_error == "worker stopped unexpectedly: asr_worker"
