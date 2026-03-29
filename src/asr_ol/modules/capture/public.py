@@ -7,8 +7,6 @@ import queue
 import threading
 from typing import Callable, Protocol
 
-from asr_ol.agents.capture_fsm import CaptureFSM
-from asr_ol.agents.transcript_extractor import InMemoryTranscriptExtractor
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
 from asr_ol.core.queue_utils import put_nowait_or_drop
@@ -18,6 +16,8 @@ from asr_ol.modules.capture.application.capture_service import (
     to_vad_event,
     to_wake_event,
 )
+from asr_ol.modules.capture.application.transcript_extractor import InMemoryTranscriptExtractor
+from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM
 from asr_ol.modules.capture.infrastructure.capture_worker import (
     CaptureWorker as LegacyCaptureWorker,
 )
@@ -122,7 +122,7 @@ class WorkerCaptureModule:
 
     def stop(self) -> None:
         """Expose a symmetric lifecycle hook for the runtime module."""
-        return
+        self._stop_event.set()
 
     def join(self, timeout: float | None = None) -> None:
         """Join worker and fanout threads."""

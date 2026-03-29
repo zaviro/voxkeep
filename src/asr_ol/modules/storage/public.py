@@ -53,6 +53,7 @@ class SqliteStorageModule:
     ) -> None:
         """Create a storage module backed by the SQLite worker."""
         self._in_queue = in_queue
+        self._stop_event = stop_event
         self._worker = SqliteStorageWorker(
             in_queue=in_queue,
             stop_event=stop_event,
@@ -66,7 +67,7 @@ class SqliteStorageModule:
 
     def stop(self) -> None:
         """Expose a symmetric lifecycle hook for the runtime module."""
-        return
+        self._stop_event.set()
 
     def join(self, timeout: float | None = None) -> None:
         """Join the underlying storage worker."""

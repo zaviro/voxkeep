@@ -81,3 +81,53 @@ def test_transcription_module_submits_audio_and_emits_public_events(
 
     assert len(fake_engine.submitted) == 1
     assert seen == ["hello"]
+
+
+def test_transcription_module_submit_audio_drops_when_queue_is_full(
+    monkeypatch, app_config: AppConfig
+) -> None:
+    fake_engine = _FakeEngine()
+    monkeypatch.setattr(
+        "asr_ol.modules.transcription.public.FunAsrWsEngine",
+        lambda cfg, stop_event: fake_engine,
+    )
+    stop_event = threading.Event()
+    module = build_transcription_module(
+        capture_queue=queue.Queue(),
+        storage_queue=queue.Queue(),
+        stop_event=stop_event,
+        cfg=app_config,
+        in_queue=queue.Queue(maxsize=1),
+    )
+    frame = AudioFrame(
+        frame_id=1,
+        data_int16=(b"\x00\x00" * 160),
+        pcm_f32=np.zeros(160, dtype=np.float32),
+        sample_rate=16000,
+        ts_start=1.0,
+        ts_end=1.01,
+    )
+
+    module.submit_audio(frame)
+    module.submit_audio(frame)
+
+    assert fake_engine.submitted == []
+
+
+def test_transcription_module_stop_sets_stop_event(monkeypatch, app_config: AppConfig) -> None:
+    fake_engine = _FakeEngine()
+    monkeypatch.setattr(
+        "asr_ol.modules.transcription.public.FunAsrWsEngine",
+        lambda cfg, stop_event: fake_engine,
+    )
+    stop_event = threading.Event()
+    module = build_transcription_module(
+        capture_queue=queue.Queue(),
+        storage_queue=queue.Queue(),
+        stop_event=stop_event,
+        cfg=app_config,
+    )
+
+    module.stop()
+
+    assert stop_event.is_set() is True

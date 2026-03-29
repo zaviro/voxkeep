@@ -8,11 +8,11 @@ from typing import Protocol
 
 from asr_ol.modules.injection.application.execute_capture import to_capture_command, to_result
 from asr_ol.modules.injection.contracts import InjectionResult
+from asr_ol.modules.injection.infrastructure.factory import build_injector
 from asr_ol.modules.injection.infrastructure.injector_worker import InjectorWorker
 from asr_ol.shared.config import AppConfig
 from asr_ol.shared.types import CaptureCompleted
 from asr_ol.core.events import CaptureCommand
-from asr_ol.tools.injector.factory import build_injector
 
 
 class InjectionModule(Protocol):
@@ -49,6 +49,7 @@ class WorkerInjectionModule:
         cfg: AppConfig,
     ) -> None:
         """Create an injection module backed by the worker implementation."""
+        self._stop_event = stop_event
         self._worker = InjectorWorker(
             in_queue=in_queue,
             stop_event=stop_event,
@@ -63,7 +64,7 @@ class WorkerInjectionModule:
 
     def stop(self) -> None:
         """Expose a symmetric lifecycle hook for the runtime module."""
-        return
+        self._stop_event.set()
 
     def join(self, timeout: float | None = None) -> None:
         """Join the underlying injection worker."""

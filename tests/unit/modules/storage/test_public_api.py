@@ -53,3 +53,16 @@ def test_storage_module_converts_public_events_to_storage_writes(app_config: App
         created_at=capture_write.created_at,
         meta_json=None,
     )
+
+
+def test_storage_module_stop_sets_stop_event(app_config: AppConfig) -> None:
+    stop_event = threading.Event()
+    module = build_storage_module(
+        in_queue=queue.Queue(),
+        stop_event=stop_event,
+        cfg=app_config,
+    )
+
+    module.stop()
+
+    assert stop_event.is_set() is True

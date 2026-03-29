@@ -1,9 +1,5 @@
-from __future__ import annotations
+"""Compatibility wrapper for the injector base contract."""
 
-from abc import ABC, abstractmethod
+from asr_ol.modules.injection.infrastructure.base import Injector
 
-
-class Injector(ABC):
-    @abstractmethod
-    def inject(self, text: str) -> bool:
-        raise NotImplementedError
+__all__ = ["Injector"]

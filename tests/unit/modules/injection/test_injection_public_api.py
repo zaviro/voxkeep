@@ -32,3 +32,20 @@ def test_injection_module_executes_capture_completed(monkeypatch, app_config: Ap
     )
 
     assert result == InjectionResult(ok=True, action="inject_text")
+
+
+def test_injection_module_stop_sets_stop_event(monkeypatch, app_config: AppConfig) -> None:
+    monkeypatch.setattr(
+        "asr_ol.modules.injection.public.build_injector",
+        lambda _cfg: type("FakeInjector", (), {"inject": lambda self, text: True})(),
+    )
+    stop_event = threading.Event()
+    module = build_injection_module(
+        in_queue=queue.Queue(),
+        stop_event=stop_event,
+        cfg=app_config,
+    )
+
+    module.stop()
+
+    assert stop_event.is_set() is True

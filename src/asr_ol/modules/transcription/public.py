@@ -9,6 +9,7 @@ from typing import Callable, Protocol
 
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import AsrFinalEvent, ProcessedFrame, StorageRecord
+from asr_ol.core.queue_utils import put_nowait_or_drop
 from asr_ol.modules.transcription.application.transcription_service import (
     to_processed_frame,
     to_transcript_finalized,
@@ -96,11 +97,17 @@ class WorkerTranscriptionModule:
 
     def stop(self) -> None:
         """Expose a symmetric lifecycle hook for the runtime module."""
-        return
+        self._stop_event.set()
 
     def submit_audio(self, frame: AudioFrame) -> None:
         """Submit one audio frame into the transcription pipeline."""
-        self._in_queue.put_nowait(to_processed_frame(frame))
+        processed = to_processed_frame(frame)
+        put_nowait_or_drop(
+            self._in_queue,
+            processed,
+            logger=logger,
+            warning=f"transcription input queue full; dropping frame_id={processed.frame_id}",
+        )
 
     def subscribe_transcript_finalized(
         self, handler: Callable[[TranscriptFinalized], None]

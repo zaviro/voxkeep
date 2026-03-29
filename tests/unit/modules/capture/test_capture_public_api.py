@@ -49,3 +49,17 @@ def test_capture_module_emits_capture_completed_and_forwards_command(
     command = downstream_q.get_nowait()
     assert command.action == "inject_text"
     assert seen == ["hello world"]
+
+
+def test_capture_module_stop_sets_stop_event(app_config: AppConfig) -> None:
+    stop_event = threading.Event()
+    module = build_capture_module(
+        downstream_queue=queue.Queue(),
+        storage_queue=queue.Queue(),
+        stop_event=stop_event,
+        cfg=app_config,
+    )
+
+    module.stop()
+
+    assert stop_event.is_set() is True
