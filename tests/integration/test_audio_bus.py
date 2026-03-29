@@ -1,8 +1,8 @@
 import queue
 import time
 
-from asr_ol.services.audio_bus import AudioBus
-from asr_ol.core.events import RawAudioChunk
+from asr_ol.modules.runtime.infrastructure.audio_bus import AudioBus
+from asr_ol.shared.events import RawAudioChunk
 
 
 def test_fanout_and_preprocess_once():

@@ -7,9 +7,9 @@ import queue
 import threading
 from typing import Callable, Protocol
 
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 from asr_ol.modules.capture.application.capture_service import (
     to_asr_final_event,
     to_capture_completed,

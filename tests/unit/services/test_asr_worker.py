@@ -6,8 +6,8 @@ import threading
 import numpy as np
 import pytest
 
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import AsrFinalEvent, ProcessedFrame
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import AsrFinalEvent, ProcessedFrame
 from asr_ol.modules.transcription.infrastructure.asr_worker import AsrWorker
 
 

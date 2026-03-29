@@ -1,3 +1,4 @@
+# ruff: noqa: D100,D101,D102,D107
 from __future__ import annotations
 
 import logging
@@ -6,8 +7,8 @@ import threading
 from typing import Any, Protocol
 
 import numpy as np
-from asr_ol.core.events import ProcessedFrame, VadEvent
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.events import ProcessedFrame, VadEvent
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 

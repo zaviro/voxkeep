@@ -1,3 +1,4 @@
+# ruff: noqa: D100,D107,D102
 from __future__ import annotations
 
 import logging
@@ -6,10 +7,10 @@ import threading
 import time
 from typing import Any
 
-from asr_ol.core.audio_source import AudioSource
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import RawAudioChunk
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.interfaces import AudioSource
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import RawAudioChunk
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 

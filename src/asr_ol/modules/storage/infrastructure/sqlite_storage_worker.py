@@ -11,7 +11,7 @@ import sqlite3
 import threading
 import time
 
-from asr_ol.core.events import StorageRecord
+from asr_ol.shared.events import StorageRecord
 
 logger = logging.getLogger(__name__)
 

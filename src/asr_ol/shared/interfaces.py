@@ -1,10 +1,10 @@
-"""Abstract interfaces for pluggable ASR backends."""
+"""Shared abstract interfaces for pluggable runtime components."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from asr_ol.core.events import ProcessedFrame
+from asr_ol.shared.events import ProcessedFrame
 
 
 class ASREngine(ABC):
@@ -23,4 +23,18 @@ class ASREngine(ABC):
     @abstractmethod
     def close(self) -> None:
         """Close engine resources and flush pending work."""
+        raise NotImplementedError
+
+
+class AudioSource(ABC):
+    """Define a start/stop interface for audio producers."""
+
+    @abstractmethod
+    def start(self) -> None:
+        """Start capturing audio into the configured sink."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def stop(self) -> None:
+        """Stop capturing audio and release resources."""
         raise NotImplementedError

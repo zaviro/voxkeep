@@ -11,7 +11,7 @@ from asr_ol.modules.storage.contracts import StorageWrite
 from asr_ol.modules.storage.infrastructure.sqlite_storage_worker import SqliteStorageWorker
 from asr_ol.shared.config import AppConfig
 from asr_ol.shared.types import CaptureCompleted, TranscriptFinalized
-from asr_ol.core.events import StorageRecord
+from asr_ol.shared.events import StorageRecord
 
 
 class StorageModule(Protocol):

@@ -15,8 +15,8 @@ import pytest
 from asr_ol.modules.capture.application.transcript_extractor import InMemoryTranscriptExtractor
 from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM
 from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import (
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import (
     AsrFinalEvent,
     ProcessedFrame,
     RawAudioChunk,
@@ -25,7 +25,7 @@ from asr_ol.core.events import (
     WakeEvent,
 )
 from asr_ol.modules.transcription.infrastructure.asr_worker import AsrWorker
-from asr_ol.services.audio_bus import AudioBus
+from asr_ol.modules.runtime.infrastructure.audio_bus import AudioBus
 
 
 ROOT = Path(__file__).resolve().parents[2]

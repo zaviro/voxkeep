@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from asr_ol.core.events import CaptureCommand
+from asr_ol.shared.events import CaptureCommand
 from asr_ol.modules.injection.contracts import InjectionResult
 from asr_ol.shared.types import CaptureCompleted
 

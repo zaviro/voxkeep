@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from asr_ol.core.events import AsrFinalEvent, ProcessedFrame
+from asr_ol.shared.events import AsrFinalEvent, ProcessedFrame
 from asr_ol.shared.types import AudioFrame, TranscriptFinalized
 
 

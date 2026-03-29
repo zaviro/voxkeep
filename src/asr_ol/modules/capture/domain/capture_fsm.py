@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 import time
 
-from asr_ol.core.events import VadEvent, WakeEvent
+from asr_ol.shared.events import VadEvent, WakeEvent
 
 
 class CaptureState(str, Enum):

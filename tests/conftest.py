@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from asr_ol.core.config import AppConfig, WakeRuleConfig
+from asr_ol.shared.config import AppConfig, WakeRuleConfig
 
 
 @pytest.fixture

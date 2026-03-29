@@ -4,7 +4,7 @@ from dataclasses import replace
 import threading
 
 from asr_ol.bootstrap.runtime_app import AppRuntime
-from asr_ol.core.config import AppConfig
+from asr_ol.shared.config import AppConfig
 from asr_ol.modules.capture.public import CaptureModule
 from asr_ol.modules.injection.public import InjectionModule
 from asr_ol.modules.storage.public import StorageModule

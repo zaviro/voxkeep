@@ -12,7 +12,7 @@ from asr_ol.modules.injection.infrastructure.factory import build_injector
 from asr_ol.modules.injection.infrastructure.injector_worker import InjectorWorker
 from asr_ol.shared.config import AppConfig
 from asr_ol.shared.types import CaptureCompleted
-from asr_ol.core.events import CaptureCommand
+from asr_ol.shared.events import CaptureCommand
 
 
 class InjectionModule(Protocol):

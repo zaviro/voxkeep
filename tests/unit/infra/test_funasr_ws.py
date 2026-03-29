@@ -9,8 +9,8 @@ from typing import Any
 import numpy as np
 import pytest
 
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import ProcessedFrame
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import ProcessedFrame
 from asr_ol.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
 
 

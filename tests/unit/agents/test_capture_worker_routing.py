@@ -5,7 +5,7 @@ import threading
 
 from asr_ol.modules.capture.domain.capture_fsm import CaptureWindow
 from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
-from asr_ol.core.events import AsrFinalEvent, VadEvent, WakeEvent
+from asr_ol.shared.events import AsrFinalEvent, VadEvent, WakeEvent
 
 
 class FakeFSM:

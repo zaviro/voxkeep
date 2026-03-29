@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
-from asr_ol.core.config import AppConfig, load_config
+from asr_ol.shared.config import AppConfig, load_config
 
 
 def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):

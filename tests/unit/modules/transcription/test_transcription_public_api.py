@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-from asr_ol.core.events import AsrFinalEvent
+from asr_ol.shared.events import AsrFinalEvent
 from asr_ol.modules.transcription.public import build_transcription_module
 from asr_ol.shared.config import AppConfig
 from asr_ol.shared.types import AudioFrame

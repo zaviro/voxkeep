@@ -1,8 +1,8 @@
 from abc import ABC
 
-from asr_ol.core.asr_engine import ASREngine
-from asr_ol.core.audio_source import AudioSource
-from asr_ol.core.events import (
+from asr_ol.shared.interfaces import ASREngine
+from asr_ol.shared.interfaces import AudioSource
+from asr_ol.shared.events import (
     AsrFinalEvent,
     CaptureCommand,
     RawAudioChunk,

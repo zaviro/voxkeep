@@ -21,7 +21,7 @@ class RawAudioChunk:
 
 @dataclass(slots=True)
 class ProcessedFrame:
-    """Preprocessed frame faned out to wake/VAD/ASR workers."""
+    """Preprocessed frame fanned out to wake/VAD/ASR workers."""
 
     frame_id: int
     data_int16: bytes

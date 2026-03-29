@@ -8,8 +8,8 @@ import queue
 import threading
 import time
 
-from asr_ol.core.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 from asr_ol.modules.capture.application.transcript_extractor import TranscriptExtractor
 from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM, CaptureWindow
 

@@ -7,9 +7,9 @@ import logging
 import queue
 import threading
 
-from asr_ol.core.asr_engine import ASREngine
-from asr_ol.core.events import AsrFinalEvent, ProcessedFrame, StorageRecord
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.interfaces import ASREngine
+from asr_ol.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 

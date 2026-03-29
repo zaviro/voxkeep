@@ -1,7 +1,7 @@
 import pytest
 
 from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM, CaptureState
-from asr_ol.core.events import VadEvent, WakeEvent
+from asr_ol.shared.events import VadEvent, WakeEvent
 
 
 def test_capture_fsm_returns_capture_window_on_speech_end():

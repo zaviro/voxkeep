@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from asr_ol.core.config import AppConfig
+from asr_ol.shared.config import AppConfig
 from asr_ol.modules.injection.infrastructure.factory import build_injector
 from asr_ol.modules.injection.infrastructure.xdotool_injector import XdotoolInjector
 from asr_ol.modules.injection.infrastructure.ydotool_injector import YdotoolInjector

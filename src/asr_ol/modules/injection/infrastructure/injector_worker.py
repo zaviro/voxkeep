@@ -7,7 +7,7 @@ import queue
 import subprocess
 import threading
 
-from asr_ol.core.events import CaptureCommand
+from asr_ol.shared.events import CaptureCommand
 from asr_ol.modules.injection.infrastructure.base import Injector
 
 logger = logging.getLogger(__name__)

@@ -7,9 +7,9 @@ import queue
 import threading
 from typing import Callable, Protocol
 
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import AsrFinalEvent, ProcessedFrame, StorageRecord
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 from asr_ol.modules.transcription.application.transcription_service import (
     to_processed_frame,
     to_transcript_finalized,

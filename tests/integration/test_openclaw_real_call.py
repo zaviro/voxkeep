@@ -8,7 +8,7 @@ import threading
 from asr_ol.modules.capture.application.transcript_extractor import InMemoryTranscriptExtractor
 from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM
 from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
-from asr_ol.core.events import AsrFinalEvent, VadEvent, WakeEvent
+from asr_ol.shared.events import AsrFinalEvent, VadEvent, WakeEvent
 
 
 def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():

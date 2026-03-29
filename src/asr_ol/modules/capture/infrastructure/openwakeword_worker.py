@@ -1,3 +1,4 @@
+# ruff: noqa: D100,D101,D102,D107
 from __future__ import annotations
 
 import logging
@@ -7,9 +8,9 @@ import threading
 from typing import Any, Mapping, Protocol, Sequence
 
 import numpy as np
-from asr_ol.core.config import WakeRuleConfig
-from asr_ol.core.events import ProcessedFrame, WakeEvent
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.config import WakeRuleConfig
+from asr_ol.shared.events import ProcessedFrame, WakeEvent
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 

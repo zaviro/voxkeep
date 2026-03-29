@@ -4,7 +4,7 @@ import queue
 import threading
 import time
 
-from asr_ol.core.events import CaptureCommand
+from asr_ol.shared.events import CaptureCommand
 from asr_ol.modules.capture.public import build_capture_module
 from asr_ol.shared.config import AppConfig
 from asr_ol.shared.types import SpeechBoundaryDetected, TranscriptFinalized, WakeDetected

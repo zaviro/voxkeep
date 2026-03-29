@@ -3,7 +3,10 @@ import types
 
 import numpy as np
 
-from asr_ol.infra.wake.openwakeword_worker import NullWakeScorer, OpenWakeWordScorer
+from asr_ol.modules.capture.infrastructure.openwakeword_worker import (
+    NullWakeScorer,
+    OpenWakeWordScorer,
+)
 
 
 def _install_fake_openwakeword(monkeypatch, model_cls: type) -> None:

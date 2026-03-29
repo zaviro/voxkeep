@@ -8,14 +8,16 @@ import threading
 import time
 
 from asr_ol.modules.capture.public import build_capture_module
+from asr_ol.modules.capture.infrastructure.openwakeword_worker import OpenWakeWordWorker
+from asr_ol.modules.capture.infrastructure.silero_worker import SileroVadWorker
 from asr_ol.modules.injection.public import build_injection_module
+from asr_ol.modules.runtime.infrastructure.audio_bus import AudioBus
+from asr_ol.modules.runtime.infrastructure.audio_capture import SoundDeviceAudioSource
+from asr_ol.modules.runtime.infrastructure.lifecycle import Worker, WorkerHandle
 from asr_ol.modules.storage.public import build_storage_module
 from asr_ol.modules.transcription.public import build_transcription_module
-from asr_ol.services.audio_bus import AudioBus
-from asr_ol.services.lifecycle import Worker, WorkerHandle
-from asr_ol.infra.audio.audio_capture import SoundDeviceAudioSource
-from asr_ol.core.config import AppConfig
-from asr_ol.core.events import (
+from asr_ol.shared.config import AppConfig
+from asr_ol.shared.events import (
     AsrFinalEvent,
     CaptureCommand,
     ProcessedFrame,
@@ -24,8 +26,6 @@ from asr_ol.core.events import (
     VadEvent,
     WakeEvent,
 )
-from asr_ol.infra.vad.silero_worker import SileroVadWorker
-from asr_ol.infra.wake.openwakeword_worker import OpenWakeWordWorker
 
 logger = logging.getLogger(__name__)
 

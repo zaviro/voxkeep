@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import queue
 
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 
 
 def test_put_nowait_or_drop_returns_true_when_enqueued():

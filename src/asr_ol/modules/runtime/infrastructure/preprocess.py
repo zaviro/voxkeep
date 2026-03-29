@@ -1,8 +1,9 @@
+# ruff: noqa: D100,D107,D102
 from __future__ import annotations
 
 import numpy as np
 
-from asr_ol.core.events import ProcessedFrame, RawAudioChunk
+from asr_ol.shared.events import ProcessedFrame, RawAudioChunk
 
 
 class Preprocessor:

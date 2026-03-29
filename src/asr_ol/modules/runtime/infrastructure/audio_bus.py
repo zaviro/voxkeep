@@ -6,9 +6,9 @@ import logging
 import queue
 import threading
 
-from asr_ol.infra.audio.preprocess import Preprocessor
-from asr_ol.core.events import ProcessedFrame, RawAudioChunk
-from asr_ol.core.queue_utils import put_nowait_or_drop
+from asr_ol.modules.runtime.infrastructure.preprocess import Preprocessor
+from asr_ol.shared.events import ProcessedFrame, RawAudioChunk
+from asr_ol.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
 
