@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Protocol
+
+from asr_ol.modules.runtime.contracts import RuntimeStatus
 
 
 class QueueLike(Protocol):
@@ -27,15 +29,6 @@ class RuntimeLike(Protocol):
     """Protocol describing runtime attributes used by status collector."""
 
     stop_event: EventLike
-
-
-@dataclass(slots=True)
-class RuntimeStatus:
-    """Serializable runtime status payload."""
-
-    created_at: str
-    running: bool
-    queue_sizes: dict[str, int]
 
 
 def _queue_size(runtime: RuntimeLike, attr_name: str) -> int:

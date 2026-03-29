@@ -3,8 +3,12 @@ from __future__ import annotations
 from dataclasses import replace
 import threading
 
+from asr_ol.bootstrap.runtime_app import AppRuntime
 from asr_ol.core.config import AppConfig
-from asr_ol.services.runtime_app import AppRuntime
+from asr_ol.modules.capture.public import CaptureModule
+from asr_ol.modules.injection.public import InjectionModule
+from asr_ol.modules.storage.public import StorageModule
+from asr_ol.modules.transcription.public import TranscriptionModule
 
 
 class _CallRecorder:
@@ -42,8 +46,119 @@ class _FakeInjector:
         return True
 
 
+class _FakeStorageModule(StorageModule):
+    def __init__(self) -> None:
+        self._in_queue = object()
+
+    def start(self) -> None:
+        return
+
+    def stop(self) -> None:
+        return
+
+    def join(self, timeout: float | None = None) -> None:
+        _ = timeout
+
+    def is_alive(self) -> bool:
+        return True
+
+    def store_transcript(self, event):  # type: ignore[no-untyped-def]
+        return event
+
+    def store_capture(self, event):  # type: ignore[no-untyped-def]
+        return event
+
+
+class _FakeInjectionModule(InjectionModule):
+    def start(self) -> None:
+        return
+
+    def stop(self) -> None:
+        return
+
+    def join(self, timeout: float | None = None) -> None:
+        _ = timeout
+
+    def is_alive(self) -> bool:
+        return True
+
+    def execute_capture(self, event):  # type: ignore[no-untyped-def]
+        return event
+
+
+class _FakeCaptureModule(CaptureModule):
+    def __init__(self) -> None:
+        self._wake_queue = object()
+        self._vad_queue = object()
+        self._asr_queue = object()
+
+    def start(self) -> None:
+        return
+
+    def stop(self) -> None:
+        return
+
+    def accept_wake(self, event):  # type: ignore[no-untyped-def]
+        return
+
+    def accept_vad(self, event):  # type: ignore[no-untyped-def]
+        return
+
+    def accept_transcript(self, event):  # type: ignore[no-untyped-def]
+        return
+
+    def subscribe_capture_completed(self, handler):  # type: ignore[no-untyped-def]
+        _ = handler
+
+    def join(self, timeout: float | None = None) -> None:
+        _ = timeout
+
+    def is_alive(self) -> bool:
+        return True
+
+
+class _FakeTranscriptionModule(TranscriptionModule):
+    def __init__(self) -> None:
+        self._in_queue = object()
+        self._final_in_queue = object()
+        self._engine = type("FakeEngine", (), {"final_queue": object()})()
+
+    def start(self) -> None:
+        return
+
+    def stop(self) -> None:
+        return
+
+    def submit_audio(self, frame):  # type: ignore[no-untyped-def]
+        return
+
+    def subscribe_transcript_finalized(self, handler):  # type: ignore[no-untyped-def]
+        _ = handler
+
+    def join(self, timeout: float | None = None) -> None:
+        _ = timeout
+
+    def is_alive(self) -> bool:
+        return True
+
+
 def test_runtime_builds_worker_lifecycle_plan(monkeypatch, app_config: AppConfig):
-    monkeypatch.setattr("asr_ol.services.runtime_app.build_injector", lambda _cfg: _FakeInjector())
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
 
     runtime = AppRuntime(app_config)
 
@@ -156,16 +271,156 @@ def test_runtime_stop_continues_when_audio_source_stop_fails():
 
 
 def test_runtime_init_wires_asr_and_capture_queues(monkeypatch, app_config: AppConfig):
-    monkeypatch.setattr("asr_ol.services.runtime_app.build_injector", lambda _cfg: _FakeInjector())
+    fake_capture = _FakeCaptureModule()
+    fake_transcription = _FakeTranscriptionModule()
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_capture_module", lambda **_kwargs: fake_capture
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: fake_transcription,
+    )
+    fake_storage = _FakeStorageModule()
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
+    )
     cfg = replace(app_config, max_queue_size=8)
 
     runtime = AppRuntime(cfg)
 
-    assert runtime.asr_worker._in_queue is runtime.asr_audio_queue
-    assert runtime.asr_worker._final_in_queue is runtime.asr_engine.final_queue
-    assert runtime.capture_worker._asr_queue is runtime.capture_asr_queue
-    assert runtime.storage_worker._in_queue is runtime.storage_queue
+    assert runtime.asr_worker is fake_transcription
+    assert runtime.capture_worker is fake_capture
+    assert runtime.storage_worker is fake_storage
     assert runtime.raw_queue.maxsize == 8
+
+
+def test_runtime_builds_storage_through_module_public_api(monkeypatch, app_config: AppConfig):
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
+    built: dict[str, object] = {}
+
+    def _build_storage_module(**kwargs):  # type: ignore[no-untyped-def]
+        built.update(kwargs)
+        return _FakeStorageModule()
+
+    monkeypatch.setattr("asr_ol.bootstrap.runtime_app.build_storage_module", _build_storage_module)
+
+    runtime = AppRuntime(app_config)
+
+    assert runtime.storage_worker is not None
+    assert built["in_queue"] is runtime.storage_queue
+    assert built["stop_event"] is runtime.stop_event
+    assert built["cfg"] is app_config
+
+
+def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_config: AppConfig):
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
+    fake_storage = _FakeStorageModule()
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
+    )
+    built: dict[str, object] = {}
+
+    def _build_injection_module(**kwargs):  # type: ignore[no-untyped-def]
+        built.update(kwargs)
+        return _FakeInjectionModule()
+
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module", _build_injection_module
+    )
+
+    runtime = AppRuntime(app_config)
+
+    assert runtime.injector_worker is not None
+    assert built["in_queue"] is runtime.capture_cmd_queue
+    assert built["stop_event"] is runtime.stop_event
+    assert built["cfg"] is app_config
+
+
+def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_config: AppConfig):
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    built: dict[str, object] = {}
+
+    def _build_capture_module(**kwargs):  # type: ignore[no-untyped-def]
+        built.update(kwargs)
+        return _FakeCaptureModule()
+
+    monkeypatch.setattr("asr_ol.bootstrap.runtime_app.build_capture_module", _build_capture_module)
+
+    runtime = AppRuntime(app_config)
+
+    assert runtime.capture_worker is not None
+    assert built["wake_queue"] is runtime.wake_event_queue
+    assert built["vad_queue"] is runtime.vad_event_queue
+    assert built["asr_queue"] is runtime.capture_asr_queue
+    assert built["downstream_queue"] is runtime.capture_cmd_queue
+    assert built["storage_queue"] is runtime.storage_queue
+
+
+def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app_config: AppConfig):
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    built: dict[str, object] = {}
+
+    def _build_transcription_module(**kwargs):  # type: ignore[no-untyped-def]
+        built.update(kwargs)
+        return _FakeTranscriptionModule()
+
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        _build_transcription_module,
+    )
+
+    runtime = AppRuntime(app_config)
+
+    assert runtime.asr_worker is not None
+    assert built["in_queue"] is runtime.asr_audio_queue
+    assert built["capture_queue"] is runtime.capture_asr_queue
+    assert built["storage_queue"] is runtime.storage_queue
+    assert built["stop_event"] is runtime.stop_event
+    assert built["cfg"] is app_config
 
 
 def test_run_forever_raises_when_worker_is_unhealthy():

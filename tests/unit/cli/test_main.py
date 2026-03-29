@@ -45,7 +45,9 @@ class _RuntimeKeyboard(_RuntimeBase):
 
 def _setup_common(monkeypatch, runtime_cls: type[_RuntimeBase]) -> None:
     monkeypatch.setattr(cli_main, "build_arg_parser", lambda: _Parser())
-    monkeypatch.setattr(cli_main, "load_config", lambda _path: types.SimpleNamespace(log_level="INFO"))
+    monkeypatch.setattr(
+        cli_main, "load_config", lambda _path: types.SimpleNamespace(log_level="INFO")
+    )
     monkeypatch.setattr(cli_main, "configure_logging", lambda _level: None)
     monkeypatch.setattr(cli_main, "install_signal_handlers", lambda _stop_event: None)
     monkeypatch.setattr(cli_main, "AppRuntime", runtime_cls)
@@ -73,3 +75,7 @@ def test_main_returns_zero_on_keyboard_interrupt(monkeypatch):
     code = cli_main.main()
 
     assert code == cli_main.EXIT_OK
+
+
+def test_cli_uses_bootstrap_runtime_app() -> None:
+    assert cli_main.AppRuntime.__module__ == "asr_ol.bootstrap.runtime_app"

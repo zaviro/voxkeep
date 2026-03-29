@@ -7,7 +7,7 @@ import logging
 
 from asr_ol.core.config import load_config
 from asr_ol.core.logging_setup import configure_logging
-from asr_ol.services.runtime_app import AppRuntime
+from asr_ol.bootstrap.runtime_app import AppRuntime
 from asr_ol.services.shutdown import install_signal_handlers
 
 logger = logging.getLogger(__name__)
