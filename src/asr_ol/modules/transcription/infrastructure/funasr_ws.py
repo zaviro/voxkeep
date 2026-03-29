@@ -86,6 +86,7 @@ class FunAsrWsEngine(ASREngine):
     async def _run_session(self) -> None:
         try:
             import websockets
+            from websockets.typing import Subprotocol
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError("websockets package is required") from exc
 
@@ -96,7 +97,7 @@ class FunAsrWsEngine(ASREngine):
             ping_interval=20,
             ping_timeout=20,
             max_size=2**22,
-            subprotocols=["binary"],
+            subprotocols=[Subprotocol("binary")],
         ) as ws:
             logger.info("asr websocket connected")
             sender = asyncio.create_task(self._sender(ws))
@@ -111,8 +112,9 @@ class FunAsrWsEngine(ASREngine):
             for task in pending:
                 task.cancel()
             for task in done:
-                if task.exception():
-                    raise task.exception()
+                exc = task.exception()
+                if exc is not None:
+                    raise exc
 
     async def _sender(self, ws: Any) -> None:
         await ws.send(json.dumps(self._build_ws_config(is_speaking=True)))

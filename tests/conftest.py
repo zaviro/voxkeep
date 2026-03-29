@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import shutil
+
 import pytest
 
 from asr_ol.shared.config import AppConfig, WakeRuleConfig
@@ -47,3 +50,11 @@ def app_config() -> AppConfig:
         openclaw_timeout_s=20.0,
         log_level="INFO",
     )
+
+
+@pytest.fixture
+def require_openclaw_real() -> None:
+    if os.environ.get("ASR_OL_RUN_OPENCLAW_REAL") != "1":
+        pytest.skip("set ASR_OL_RUN_OPENCLAW_REAL=1 to run real OpenClaw integration tests")
+    if shutil.which("openclaw") is None:
+        pytest.skip("openclaw command not found in PATH")

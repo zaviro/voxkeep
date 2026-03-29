@@ -249,7 +249,10 @@ def test_pipeline_end_to_end_with_gptsovits_audio(app_config: AppConfig):
     assert asr_event_bus.qsize() == 1
 
 
-def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(app_config: AppConfig):
+def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
+    app_config: AppConfig,
+    require_openclaw_real: None,
+):
     expected_reply = "你好这里是openclaw"
     transcript_text = "请忽略其他内容，只回复：你好这里是openclaw"
     audio_path = _require_fixture(HEY_JARVIS_AUDIO)

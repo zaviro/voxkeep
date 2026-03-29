@@ -124,6 +124,18 @@ make precommit
 ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
 ```
 
+- 运行真实 OpenClaw 集成测试：
+
+```bash
+ASR_OL_RUN_OPENCLAW_REAL=1 uv run --python 3.11 python -m pytest tests/integration/test_openclaw_real_call.py -q
+```
+
+- 运行带真实 OpenClaw 的 GPT-SoVITS E2E：
+
+```bash
+ASR_OL_RUN_GPTSOVITS_E2E=1 ASR_OL_RUN_OPENCLAW_REAL=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
+```
+
 检查 runtime-ai 可用性：
 
 ```bash

@@ -11,7 +11,7 @@ from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
 from asr_ol.shared.events import AsrFinalEvent, VadEvent, WakeEvent
 
 
-def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload():
+def test_openclaw_triggered_by_wake_with_asr_hi_returns_payload(require_openclaw_real: None):
     prompt_text = "请忽略其他内容，只回复：你好这里是openclaw"
     agents = subprocess.run(
         ["openclaw", "agents", "list", "--json"],

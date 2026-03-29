@@ -58,7 +58,7 @@ pythonVersion = "3.11"
 typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"
-include = ["src/asr_ol/core", "src/asr_ol/services"]
+include = ["src/asr_ol"]
 reportMissingTypeStubs = false
 
 [tool.setuptools]
