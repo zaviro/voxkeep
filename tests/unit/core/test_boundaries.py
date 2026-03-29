@@ -10,7 +10,7 @@ from asr_ol.core.events import (
     VadEvent,
     WakeEvent,
 )
-from asr_ol.tools.injector.base import Injector
+from asr_ol.modules.injection.infrastructure.base import Injector
 
 
 def test_core_boundaries_are_abstract():

@@ -11,7 +11,7 @@ import pytest
 
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import ProcessedFrame
-from asr_ol.infra.asr.funasr_ws import FunAsrWsEngine
+from asr_ol.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
 
 
 class FakeWsReceiver:

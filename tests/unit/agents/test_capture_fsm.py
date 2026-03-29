@@ -1,6 +1,6 @@
 import pytest
 
-from asr_ol.agents.capture_fsm import CaptureFSM, CaptureState
+from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM, CaptureState
 from asr_ol.core.events import VadEvent, WakeEvent
 
 

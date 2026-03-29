@@ -5,7 +5,9 @@ import threading
 
 import pytest
 
-from asr_ol.infra.storage.storage_worker import StorageWorker
+from asr_ol.modules.storage.infrastructure.sqlite_storage_worker import (
+    SqliteStorageWorker as StorageWorker,
+)
 
 
 @pytest.mark.parametrize(

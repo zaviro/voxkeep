@@ -3,8 +3,8 @@ from __future__ import annotations
 import queue
 import threading
 
-from asr_ol.agents.capture_fsm import CaptureWindow
-from asr_ol.agents.capture_worker import CaptureWorker
+from asr_ol.modules.capture.domain.capture_fsm import CaptureWindow
+from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
 from asr_ol.core.events import AsrFinalEvent, VadEvent, WakeEvent
 
 

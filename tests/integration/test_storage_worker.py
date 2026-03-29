@@ -5,7 +5,9 @@ import threading
 import time
 
 from asr_ol.core.events import StorageRecord
-from asr_ol.infra.storage.storage_worker import StorageWorker
+from asr_ol.modules.storage.infrastructure.sqlite_storage_worker import (
+    SqliteStorageWorker as StorageWorker,
+)
 
 
 def _record(source: str, text: str, start_ts: float, end_ts: float) -> StorageRecord:

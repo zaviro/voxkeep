@@ -1,4 +1,4 @@
-from asr_ol.agents.transcript_extractor import InMemoryTranscriptExtractor
+from asr_ol.modules.capture.application.transcript_extractor import InMemoryTranscriptExtractor
 from asr_ol.core.events import AsrFinalEvent
 
 

@@ -8,7 +8,7 @@ import pytest
 
 from asr_ol.core.config import AppConfig
 from asr_ol.core.events import AsrFinalEvent, ProcessedFrame
-from asr_ol.services.asr_worker import AsrWorker
+from asr_ol.modules.transcription.infrastructure.asr_worker import AsrWorker
 
 
 class FakeEngine:
