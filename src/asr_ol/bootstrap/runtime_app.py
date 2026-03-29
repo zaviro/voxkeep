@@ -33,6 +33,39 @@ logger = logging.getLogger(__name__)
 _RUN_FOREVER_POLL_S = 0.2
 
 
+def build_wake_worker(
+    *,
+    in_queue: queue.Queue[ProcessedFrame],
+    out_queue: queue.Queue[WakeEvent],
+    stop_event: threading.Event,
+    cfg: AppConfig,
+) -> OpenWakeWordWorker:
+    """Build the wake detection worker."""
+    return OpenWakeWordWorker(
+        in_queue=in_queue,
+        out_queue=out_queue,
+        stop_event=stop_event,
+        rules=cfg.enabled_wake_rules,
+    )
+
+
+def build_vad_worker(
+    *,
+    in_queue: queue.Queue[ProcessedFrame],
+    out_queue: queue.Queue[VadEvent],
+    stop_event: threading.Event,
+    cfg: AppConfig,
+) -> SileroVadWorker:
+    """Build the VAD worker."""
+    return SileroVadWorker(
+        in_queue=in_queue,
+        out_queue=out_queue,
+        stop_event=stop_event,
+        speech_threshold=cfg.vad_speech_threshold,
+        silence_ms=cfg.vad_silence_ms,
+    )
+
+
 class AppRuntime:
     """Assemble and coordinate the full audio-to-action runtime pipeline."""
 
@@ -66,18 +99,17 @@ class AppRuntime:
             stop_event=self.stop_event,
         )
 
-        self.wake_worker = OpenWakeWordWorker(
+        self.wake_worker = build_wake_worker(
             in_queue=self.wake_audio_queue,
             out_queue=self.wake_event_queue,
             stop_event=self.stop_event,
-            rules=cfg.enabled_wake_rules,
+            cfg=cfg,
         )
-        self.vad_worker = SileroVadWorker(
+        self.vad_worker = build_vad_worker(
             in_queue=self.vad_audio_queue,
             out_queue=self.vad_event_queue,
             stop_event=self.stop_event,
-            speech_threshold=cfg.vad_speech_threshold,
-            silence_ms=cfg.vad_silence_ms,
+            cfg=cfg,
         )
 
         self.asr_worker = build_transcription_module(

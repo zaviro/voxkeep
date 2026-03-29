@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 import threading
 
+import pytest
+
 from asr_ol.bootstrap.runtime_app import AppRuntime
 from asr_ol.shared.config import AppConfig
 from asr_ol.modules.capture.public import CaptureModule
@@ -43,6 +45,17 @@ class _AudioSourceFailure(_AudioSourceRecorder):
 class _FakeInjector:
     def inject(self, text: str) -> bool:
         _ = text
+        return True
+
+
+class _FakeWorker:
+    def start(self) -> None:
+        return
+
+    def join(self, timeout: float | None = None) -> None:
+        _ = timeout
+
+    def is_alive(self) -> bool:
         return True
 
 
@@ -142,6 +155,18 @@ class _FakeTranscriptionModule(TranscriptionModule):
         return True
 
 
+@pytest.fixture(autouse=True)
+def _patch_runtime_ai_worker_builders(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_wake_worker",
+        lambda **_kwargs: _FakeWorker(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_vad_worker",
+        lambda **_kwargs: _FakeWorker(),
+    )
+
+
 def test_runtime_builds_worker_lifecycle_plan(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
         "asr_ol.bootstrap.runtime_app.build_capture_module",
@@ -183,6 +208,45 @@ def test_runtime_builds_worker_lifecycle_plan(monkeypatch, app_config: AppConfig
         "injector_worker",
         "storage_worker",
     ]
+
+
+def test_runtime_builds_runtime_ai_workers_through_builder_functions(
+    monkeypatch,
+    app_config: AppConfig,
+):
+    fake_wake_worker = _FakeWorker()
+    fake_vad_worker = _FakeWorker()
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_wake_worker",
+        lambda **_kwargs: fake_wake_worker,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "asr_ol.bootstrap.runtime_app.build_vad_worker",
+        lambda **_kwargs: fake_vad_worker,
+        raising=False,
+    )
+
+    runtime = AppRuntime(app_config)
+
+    assert runtime.wake_worker is fake_wake_worker
+    assert runtime.vad_worker is fake_vad_worker
 
 
 def test_runtime_start_and_stop_call_components_in_order():
