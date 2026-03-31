@@ -21,6 +21,7 @@ data/*.db-*
 data/*.jsonl
 data/models/
 build/
+dist/
 
 # Local manual audio fixtures
 tests/true-testvoice/*.m4a
