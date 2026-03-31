@@ -5,12 +5,12 @@ import threading
 
 import pytest
 
-from asr_ol.bootstrap.runtime_app import AppRuntime
-from asr_ol.shared.config import AppConfig
-from asr_ol.modules.capture.public import CaptureModule
-from asr_ol.modules.injection.public import InjectionModule
-from asr_ol.modules.storage.public import StorageModule
-from asr_ol.modules.transcription.public import TranscriptionModule
+from voxkeep.bootstrap.runtime_app import AppRuntime
+from voxkeep.shared.config import AppConfig
+from voxkeep.modules.capture.public import CaptureModule
+from voxkeep.modules.injection.public import InjectionModule
+from voxkeep.modules.storage.public import StorageModule
+from voxkeep.modules.transcription.public import TranscriptionModule
 
 
 class _CallRecorder:
@@ -158,30 +158,30 @@ class _FakeTranscriptionModule(TranscriptionModule):
 @pytest.fixture(autouse=True)
 def _patch_runtime_ai_worker_builders(monkeypatch) -> None:
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_wake_worker",
+        "voxkeep.bootstrap.runtime_app.build_wake_worker",
         lambda **_kwargs: _FakeWorker(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_vad_worker",
+        "voxkeep.bootstrap.runtime_app.build_vad_worker",
         lambda **_kwargs: _FakeWorker(),
     )
 
 
 def test_runtime_builds_worker_lifecycle_plan(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
         lambda **_kwargs: _FakeCaptureModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
         lambda **_kwargs: _FakeInjectionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
         lambda **_kwargs: _FakeStorageModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
 
@@ -217,28 +217,28 @@ def test_runtime_builds_runtime_ai_workers_through_builder_functions(
     fake_wake_worker = _FakeWorker()
     fake_vad_worker = _FakeWorker()
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
         lambda **_kwargs: _FakeCaptureModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
         lambda **_kwargs: _FakeInjectionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
         lambda **_kwargs: _FakeStorageModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_wake_worker",
+        "voxkeep.bootstrap.runtime_app.build_wake_worker",
         lambda **_kwargs: fake_wake_worker,
         raising=False,
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_vad_worker",
+        "voxkeep.bootstrap.runtime_app.build_vad_worker",
         lambda **_kwargs: fake_vad_worker,
         raising=False,
     )
@@ -338,19 +338,19 @@ def test_runtime_init_wires_asr_and_capture_queues(monkeypatch, app_config: AppC
     fake_capture = _FakeCaptureModule()
     fake_transcription = _FakeTranscriptionModule()
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_capture_module", lambda **_kwargs: fake_capture
+        "voxkeep.bootstrap.runtime_app.build_capture_module", lambda **_kwargs: fake_capture
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
         lambda **_kwargs: _FakeInjectionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         lambda **_kwargs: fake_transcription,
     )
     fake_storage = _FakeStorageModule()
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
+        "voxkeep.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
     )
     cfg = replace(app_config, max_queue_size=8)
 
@@ -364,15 +364,15 @@ def test_runtime_init_wires_asr_and_capture_queues(monkeypatch, app_config: AppC
 
 def test_runtime_builds_storage_through_module_public_api(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
         lambda **_kwargs: _FakeCaptureModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
         lambda **_kwargs: _FakeInjectionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
     built: dict[str, object] = {}
@@ -381,7 +381,7 @@ def test_runtime_builds_storage_through_module_public_api(monkeypatch, app_confi
         built.update(kwargs)
         return _FakeStorageModule()
 
-    monkeypatch.setattr("asr_ol.bootstrap.runtime_app.build_storage_module", _build_storage_module)
+    monkeypatch.setattr("voxkeep.bootstrap.runtime_app.build_storage_module", _build_storage_module)
 
     runtime = AppRuntime(app_config)
 
@@ -393,16 +393,16 @@ def test_runtime_builds_storage_through_module_public_api(monkeypatch, app_confi
 
 def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
         lambda **_kwargs: _FakeCaptureModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
     fake_storage = _FakeStorageModule()
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
+        "voxkeep.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
     )
     built: dict[str, object] = {}
 
@@ -411,7 +411,7 @@ def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_con
         return _FakeInjectionModule()
 
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module", _build_injection_module
+        "voxkeep.bootstrap.runtime_app.build_injection_module", _build_injection_module
     )
 
     runtime = AppRuntime(app_config)
@@ -424,15 +424,15 @@ def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_con
 
 def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
         lambda **_kwargs: _FakeInjectionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
         lambda **_kwargs: _FakeStorageModule(),
     )
     built: dict[str, object] = {}
@@ -441,7 +441,7 @@ def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_confi
         built.update(kwargs)
         return _FakeCaptureModule()
 
-    monkeypatch.setattr("asr_ol.bootstrap.runtime_app.build_capture_module", _build_capture_module)
+    monkeypatch.setattr("voxkeep.bootstrap.runtime_app.build_capture_module", _build_capture_module)
 
     runtime = AppRuntime(app_config)
 
@@ -455,15 +455,15 @@ def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_confi
 
 def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_capture_module",
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
         lambda **_kwargs: _FakeCaptureModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_injection_module",
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
         lambda **_kwargs: _FakeInjectionModule(),
     )
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_storage_module",
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
         lambda **_kwargs: _FakeStorageModule(),
     )
     built: dict[str, object] = {}
@@ -473,7 +473,7 @@ def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app
         return _FakeTranscriptionModule()
 
     monkeypatch.setattr(
-        "asr_ol.bootstrap.runtime_app.build_transcription_module",
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
         _build_transcription_module,
     )
 

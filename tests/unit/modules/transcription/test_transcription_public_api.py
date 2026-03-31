@@ -6,10 +6,10 @@ import time
 
 import numpy as np
 
-from asr_ol.shared.events import AsrFinalEvent
-from asr_ol.modules.transcription.public import build_transcription_module
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.types import AudioFrame
+from voxkeep.shared.events import AsrFinalEvent
+from voxkeep.modules.transcription.public import build_transcription_module
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.types import AudioFrame
 
 
 class _FakeEngine:
@@ -37,7 +37,7 @@ def test_transcription_module_submits_audio_and_emits_public_events(
 ) -> None:
     fake_engine = _FakeEngine()
     monkeypatch.setattr(
-        "asr_ol.modules.transcription.public.FunAsrWsEngine",
+        "voxkeep.modules.transcription.public.FunAsrWsEngine",
         lambda cfg, stop_event: fake_engine,
     )
     capture_q: queue.Queue[AsrFinalEvent] = queue.Queue()
@@ -88,7 +88,7 @@ def test_transcription_module_submit_audio_drops_when_queue_is_full(
 ) -> None:
     fake_engine = _FakeEngine()
     monkeypatch.setattr(
-        "asr_ol.modules.transcription.public.FunAsrWsEngine",
+        "voxkeep.modules.transcription.public.FunAsrWsEngine",
         lambda cfg, stop_event: fake_engine,
     )
     stop_event = threading.Event()
@@ -117,7 +117,7 @@ def test_transcription_module_submit_audio_drops_when_queue_is_full(
 def test_transcription_module_stop_sets_stop_event(monkeypatch, app_config: AppConfig) -> None:
     fake_engine = _FakeEngine()
     monkeypatch.setattr(
-        "asr_ol.modules.transcription.public.FunAsrWsEngine",
+        "voxkeep.modules.transcription.public.FunAsrWsEngine",
         lambda cfg, stop_event: fake_engine,
     )
     stop_event = threading.Event()

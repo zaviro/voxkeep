@@ -9,9 +9,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.events import ProcessedFrame
-from asr_ol.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.events import ProcessedFrame
+from voxkeep.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
 
 
 class FakeWsReceiver:

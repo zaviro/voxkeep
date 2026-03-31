@@ -1,6 +1,6 @@
 import threading
 
-from asr_ol.bootstrap.shutdown import install_signal_handlers
+from voxkeep.bootstrap.shutdown import install_signal_handlers
 
 
 def test_install_signal_handlers_sets_handlers():

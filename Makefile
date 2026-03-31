@@ -16,19 +16,19 @@ check-ai: setup-ai-models
 	uv run --python 3.11 python scripts/check_runtime_ai.py
 
 doctor:
-	uv run --python 3.11 python -m asr_ol doctor
+	uv run --python 3.11 python -m voxkeep doctor
 
 validate-config:
-	uv run --python 3.11 python -m asr_ol config validate --config config/config.yaml
+	uv run --python 3.11 python -m voxkeep config validate --config config/config.yaml
 
 cli-check:
-	uv run --python 3.11 python -m asr_ol check
+	uv run --python 3.11 python -m voxkeep check
 
 test:
-	uv run --python 3.11 pytest -q
+	uv run --python 3.11 python -m pytest -q
 
 test-cov:
-	uv run --python 3.11 pytest --cov=src/asr_ol --cov-report=term --cov-report=xml
+	uv run --python 3.11 python -m pytest --cov=src/voxkeep --cov-report=term --cov-report=xml
 
 typecheck:
 	uv run --python 3.11 pyright

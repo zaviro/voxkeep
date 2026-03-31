@@ -5,7 +5,7 @@ import shutil
 
 import pytest
 
-from asr_ol.shared.config import AppConfig, WakeRuleConfig
+from voxkeep.shared.config import AppConfig, WakeRuleConfig
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def app_config() -> AppConfig:
 
 @pytest.fixture
 def require_openclaw_real() -> None:
-    if os.environ.get("ASR_OL_RUN_OPENCLAW_REAL") != "1":
-        pytest.skip("set ASR_OL_RUN_OPENCLAW_REAL=1 to run real OpenClaw integration tests")
+    if os.environ.get("VOXKEEP_RUN_OPENCLAW_REAL") != "1":
+        pytest.skip("set VOXKEEP_RUN_OPENCLAW_REAL=1 to run real OpenClaw integration tests")
     if shutil.which("openclaw") is None:
         pytest.skip("openclaw command not found in PATH")

@@ -4,8 +4,8 @@ import ast
 from pathlib import Path
 
 
-SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "asr_ol"
-LEGACY_PREFIXES = ("asr_ol.core.", "asr_ol.infra.", "asr_ol.services.")
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "voxkeep"
+LEGACY_PREFIXES = ("voxkeep.core.", "voxkeep.infra.", "voxkeep.services.")
 ALLOWED_LEGACY_FILES = {
     "core/__init__.py",
     "infra/__init__.py",

@@ -5,7 +5,7 @@ import threading
 
 import pytest
 
-from asr_ol.modules.storage.infrastructure.sqlite_storage_worker import (
+from voxkeep.modules.storage.infrastructure.sqlite_storage_worker import (
     SqliteStorageWorker as StorageWorker,
 )
 

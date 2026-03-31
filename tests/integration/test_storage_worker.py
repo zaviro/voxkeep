@@ -4,8 +4,8 @@ import sqlite3
 import threading
 import time
 
-from asr_ol.shared.events import StorageRecord
-from asr_ol.modules.storage.infrastructure.sqlite_storage_worker import (
+from voxkeep.shared.events import StorageRecord
+from voxkeep.modules.storage.infrastructure.sqlite_storage_worker import (
     SqliteStorageWorker as StorageWorker,
 )
 

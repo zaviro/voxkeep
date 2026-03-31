@@ -3,7 +3,7 @@ import types
 
 import numpy as np
 
-from asr_ol.modules.capture.infrastructure.openwakeword_worker import (
+from voxkeep.modules.capture.infrastructure.openwakeword_worker import (
     NullWakeScorer,
     OpenWakeWordScorer,
 )
@@ -20,7 +20,7 @@ def _install_fake_openwakeword(monkeypatch, model_cls: type) -> None:
 
 def test_try_create_uses_onnx_framework(monkeypatch):
     captured: dict[str, object] = {}
-    monkeypatch.delenv("ASR_OL_WAKE_MODEL", raising=False)
+    monkeypatch.delenv("VOXKEEP_WAKE_MODEL", raising=False)
 
     class FakeModel:
         def __init__(self, **kwargs):
@@ -37,7 +37,7 @@ def test_try_create_uses_onnx_framework(monkeypatch):
 
 def test_try_create_respects_wake_model_env(monkeypatch):
     captured: dict[str, object] = {}
-    monkeypatch.setenv("ASR_OL_WAKE_MODEL", "hey_jarvis")
+    monkeypatch.setenv("VOXKEEP_WAKE_MODEL", "hey_jarvis")
 
     class FakeModel:
         def __init__(self, **kwargs):

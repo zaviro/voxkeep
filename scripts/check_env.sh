@@ -3,7 +3,7 @@ set -euo pipefail
 
 PASS=0
 FAIL=0
-UV_PYTHON="${ASR_OL_UV_PYTHON:-3.11}"
+UV_PYTHON="${VOXKEEP_UV_PYTHON:-3.11}"
 
 run_python() {
   if command -v uv >/dev/null 2>&1; then
@@ -74,8 +74,8 @@ fi
 echo
 
 echo "== FunASR TCP reachable =="
-FUNASR_HOST="${ASR_OL_FUNASR_HOST:-${FUNASR_HOST:-127.0.0.1}}"
-FUNASR_PORT="${ASR_OL_FUNASR_PORT:-${FUNASR_PORT:-10096}}"
+FUNASR_HOST="${VOXKEEP_FUNASR_HOST:-${FUNASR_HOST:-127.0.0.1}}"
+FUNASR_PORT="${VOXKEEP_FUNASR_PORT:-${FUNASR_PORT:-10096}}"
 if run_python - <<PY
 import socket
 

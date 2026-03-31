@@ -4,10 +4,10 @@ from dataclasses import replace
 
 import pytest
 
-from asr_ol.shared.config import AppConfig
-from asr_ol.modules.injection.infrastructure.factory import build_injector
-from asr_ol.modules.injection.infrastructure.xdotool_injector import XdotoolInjector
-from asr_ol.modules.injection.infrastructure.ydotool_injector import YdotoolInjector
+from voxkeep.shared.config import AppConfig
+from voxkeep.modules.injection.infrastructure.factory import build_injector
+from voxkeep.modules.injection.infrastructure.xdotool_injector import XdotoolInjector
+from voxkeep.modules.injection.infrastructure.ydotool_injector import YdotoolInjector
 
 
 @pytest.mark.parametrize(

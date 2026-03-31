@@ -1,7 +1,7 @@
 import queue
 import threading
 
-from asr_ol.api.runtime_status import collect_runtime_status, collect_runtime_status_dict
+from voxkeep.api.runtime_status import collect_runtime_status, collect_runtime_status_dict
 
 
 class FakeRuntime:

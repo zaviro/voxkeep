@@ -12,11 +12,11 @@ import wave
 import numpy as np
 import pytest
 
-from asr_ol.modules.capture.application.transcript_extractor import InMemoryTranscriptExtractor
-from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM
-from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.events import (
+from voxkeep.modules.capture.application.transcript_extractor import InMemoryTranscriptExtractor
+from voxkeep.modules.capture.domain.capture_fsm import CaptureFSM
+from voxkeep.modules.capture.infrastructure.capture_worker import CaptureWorker
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.events import (
     AsrFinalEvent,
     ProcessedFrame,
     RawAudioChunk,
@@ -24,8 +24,8 @@ from asr_ol.shared.events import (
     VadEvent,
     WakeEvent,
 )
-from asr_ol.modules.transcription.infrastructure.asr_worker import AsrWorker
-from asr_ol.modules.runtime.infrastructure.audio_bus import AudioBus
+from voxkeep.modules.transcription.infrastructure.asr_worker import AsrWorker
+from voxkeep.modules.runtime.infrastructure.audio_bus import AudioBus
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,8 +64,8 @@ class FakeStreamingAsrEngine:
 
 
 def _require_fixture(path: Path) -> Path:
-    if os.environ.get("ASR_OL_RUN_GPTSOVITS_E2E") != "1":
-        pytest.skip("set ASR_OL_RUN_GPTSOVITS_E2E=1 to run GPT-SoVITS fixture E2E")
+    if os.environ.get("VOXKEEP_RUN_GPTSOVITS_E2E") != "1":
+        pytest.skip("set VOXKEEP_RUN_GPTSOVITS_E2E=1 to run GPT-SoVITS fixture E2E")
 
     if not path.exists() or path.stat().st_size <= 0:
         raise RuntimeError(

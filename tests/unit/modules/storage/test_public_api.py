@@ -3,10 +3,10 @@ from __future__ import annotations
 import queue
 import threading
 
-from asr_ol.modules.storage.contracts import StorageWrite
-from asr_ol.modules.storage.public import build_storage_module
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.types import CaptureCompleted, TranscriptFinalized
+from voxkeep.modules.storage.contracts import StorageWrite
+from voxkeep.modules.storage.public import build_storage_module
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.types import CaptureCompleted, TranscriptFinalized
 
 
 def test_storage_module_converts_public_events_to_storage_writes(app_config: AppConfig) -> None:

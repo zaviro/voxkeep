@@ -3,9 +3,9 @@ from __future__ import annotations
 import queue
 import threading
 
-from asr_ol.modules.capture.domain.capture_fsm import CaptureWindow
-from asr_ol.modules.capture.infrastructure.capture_worker import CaptureWorker
-from asr_ol.shared.events import AsrFinalEvent, VadEvent, WakeEvent
+from voxkeep.modules.capture.domain.capture_fsm import CaptureWindow
+from voxkeep.modules.capture.infrastructure.capture_worker import CaptureWorker
+from voxkeep.shared.events import AsrFinalEvent, VadEvent, WakeEvent
 
 
 class FakeFSM:

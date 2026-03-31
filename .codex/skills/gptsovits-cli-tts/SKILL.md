@@ -70,7 +70,7 @@ Force CPU startup when GPU inference is unavailable:
 Run E2E with fixture gating:
 
 ```bash
-ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 pytest tests/e2e/test_pipeline_tts_audio.py -q
+VOXKEEP_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
 ```
 
 ## Notes

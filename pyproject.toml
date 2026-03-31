@@ -1,5 +1,5 @@
 [project]
-name = "asr-ol"
+name = "voxkeep"
 version = "0.1.0"
 description = "Local always-on ASR with wake capture and text injection"
 readme = "README.md"
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-asr-ol = "asr_ol.cli.main:main"
+voxkeep = "voxkeep.cli.main:main"
 
 [dependency-groups]
 dev = [
@@ -45,20 +45,20 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
-"src/asr_ol/__init__.py" = ["D"]
-"src/asr_ol/__main__.py" = ["D"]
-"src/asr_ol/agents/**" = ["D"]
-"src/asr_ol/infra/audio/**" = ["D"]
-"src/asr_ol/infra/vad/**" = ["D"]
-"src/asr_ol/infra/wake/**" = ["D"]
-"src/asr_ol/tools/**" = ["D"]
+"src/voxkeep/__init__.py" = ["D"]
+"src/voxkeep/__main__.py" = ["D"]
+"src/voxkeep/agents/**" = ["D"]
+"src/voxkeep/infra/audio/**" = ["D"]
+"src/voxkeep/infra/vad/**" = ["D"]
+"src/voxkeep/infra/wake/**" = ["D"]
+"src/voxkeep/tools/**" = ["D"]
 
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"
-include = ["src/asr_ol"]
+include = ["src/voxkeep"]
 reportMissingTypeStubs = false
 
 [tool.setuptools]

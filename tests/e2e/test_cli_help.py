@@ -13,7 +13,7 @@ def test_cli_help_end_to_end():
     env["PYTHONPATH"] = f"{ROOT / 'src'}{os.pathsep}{old_pythonpath}".strip(os.pathsep)
 
     proc = subprocess.run(
-        [sys.executable, "-m", "asr_ol", "--help"],
+        [sys.executable, "-m", "voxkeep", "--help"],
         capture_output=True,
         text=True,
         env=env,
@@ -34,7 +34,7 @@ def test_doctor_help_end_to_end():
     env["PYTHONPATH"] = f"{ROOT / 'src'}{os.pathsep}{old_pythonpath}".strip(os.pathsep)
 
     proc = subprocess.run(
-        [sys.executable, "-m", "asr_ol", "doctor", "--help"],
+        [sys.executable, "-m", "voxkeep", "doctor", "--help"],
         capture_output=True,
         text=True,
         env=env,

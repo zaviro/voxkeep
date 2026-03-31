@@ -2,15 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
   pull_request:
-    branches: [dev]
+    branches: [main]
 
 env:
   # CI runners do not provide CUDA devices; force CPU path for deterministic behavior.
-  ASR_OL_MANAGE_FUNASR: "0"
-  ASR_OL_FUNASR_DEVICE: "cpu"
-  ASR_OL_FUNASR_NGPU: "0"
+  VOXKEEP_MANAGE_FUNASR: "0"
+  VOXKEEP_FUNASR_DEVICE: "cpu"
+  VOXKEEP_FUNASR_NGPU: "0"
   CUDA_VISIBLE_DEVICES: ""
 
 jobs:
@@ -39,7 +39,7 @@ jobs:
         run: uv run ruff format --check src tests scripts
 
       - name: Test
-        run: uv run pytest -q
+        run: uv run python -m pytest -q
 
   quality:
     runs-on: ubuntu-latest

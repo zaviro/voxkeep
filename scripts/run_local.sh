@@ -2,15 +2,15 @@
 set -euo pipefail
 
 CONFIG_PATH="${1:-config/config.yaml}"
-UV_PYTHON="${ASR_OL_UV_PYTHON:-3.11}"
-MANAGE_FUNASR="${ASR_OL_MANAGE_FUNASR:-1}"
-FUNASR_MANAGER="${ASR_OL_FUNASR_MANAGER:-docker}"
-FUNASR_COMPOSE_FILE="${ASR_OL_FUNASR_COMPOSE_FILE:-docker-compose.yml}"
-FUNASR_DOCKER_SERVICE="${ASR_OL_FUNASR_DOCKER_SERVICE:-funasr}"
-FUNASR_STOP_ON_EXIT="${ASR_OL_FUNASR_STOP_ON_EXIT:-1}"
-FUNASR_HOST="${ASR_OL_FUNASR_HOST:-${FUNASR_HOST:-127.0.0.1}}"
-FUNASR_PORT="${ASR_OL_FUNASR_PORT:-${FUNASR_PORT:-10096}}"
-FUNASR_START_TIMEOUT_S="${ASR_OL_FUNASR_START_TIMEOUT_S:-30}"
+UV_PYTHON="${VOXKEEP_UV_PYTHON:-3.11}"
+MANAGE_FUNASR="${VOXKEEP_MANAGE_FUNASR:-1}"
+FUNASR_MANAGER="${VOXKEEP_FUNASR_MANAGER:-docker}"
+FUNASR_COMPOSE_FILE="${VOXKEEP_FUNASR_COMPOSE_FILE:-docker-compose.yml}"
+FUNASR_DOCKER_SERVICE="${VOXKEEP_FUNASR_DOCKER_SERVICE:-funasr}"
+FUNASR_STOP_ON_EXIT="${VOXKEEP_FUNASR_STOP_ON_EXIT:-1}"
+FUNASR_HOST="${VOXKEEP_FUNASR_HOST:-${FUNASR_HOST:-127.0.0.1}}"
+FUNASR_PORT="${VOXKEEP_FUNASR_PORT:-${FUNASR_PORT:-10096}}"
+FUNASR_START_TIMEOUT_S="${VOXKEEP_FUNASR_START_TIMEOUT_S:-30}"
 
 STARTED_FUNASR=0
 
@@ -96,7 +96,7 @@ if [[ "$MANAGE_FUNASR" == "1" ]]; then
       start_funasr_docker
       ;;
     *)
-      echo "unsupported ASR_OL_FUNASR_MANAGER='$FUNASR_MANAGER' (supported: docker)" >&2
+      echo "unsupported VOXKEEP_FUNASR_MANAGER='$FUNASR_MANAGER' (supported: docker)" >&2
       exit 1
       ;;
   esac
@@ -109,7 +109,7 @@ if ! wait_funasr_ready; then
 fi
 
 if command -v uv >/dev/null 2>&1; then
-  uv run --python "$UV_PYTHON" python -m asr_ol --config "$CONFIG_PATH"
+  uv run --python "$UV_PYTHON" python -m voxkeep --config "$CONFIG_PATH"
 else
-  python3 -m asr_ol --config "$CONFIG_PATH"
+  python3 -m voxkeep --config "$CONFIG_PATH"
 fi

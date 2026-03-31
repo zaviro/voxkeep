@@ -59,7 +59,7 @@ PRs should include:
 - Unit and integration tests are in `tests/unit` and `tests/integration`.
 - E2E tests are in `tests/e2e`; some require opt-in env vars.
 - `make doctor` is the preferred first-stop command when local runtime checks fail.
-- `make validate-config` validates `config/config.yaml` plus `ASR_OL_*` environment overrides.
+- `make validate-config` validates `config/config.yaml` plus `VOXKEEP_*` environment overrides.
 - GPT-SoVITS E2E 使用预生成夹具，首次执行：
 
 ```bash
@@ -70,5 +70,5 @@ PRs should include:
 - 运行 GPT-SoVITS 夹具 E2E：
 
 ```bash
-ASR_OL_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
+VOXKEEP_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
 ```

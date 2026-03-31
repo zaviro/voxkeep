@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
-from asr_ol.shared.config import AppConfig, load_config
+from voxkeep.shared.config import AppConfig, load_config
 
 
 def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):
@@ -34,7 +34,7 @@ def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):
         "  pre_roll_ms: 500\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("ASR_OL_PRE_ROLL_MS", "1500")
+    monkeypatch.setenv("VOXKEEP_PRE_ROLL_MS", "1500")
     cfg = load_config(str(cfg_file))
 
     assert isinstance(cfg, AppConfig)

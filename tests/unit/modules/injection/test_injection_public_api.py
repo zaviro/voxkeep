@@ -3,15 +3,15 @@ from __future__ import annotations
 import queue
 import threading
 
-from asr_ol.modules.injection.contracts import InjectionResult
-from asr_ol.modules.injection.public import build_injection_module
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.types import CaptureCompleted
+from voxkeep.modules.injection.contracts import InjectionResult
+from voxkeep.modules.injection.public import build_injection_module
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.types import CaptureCompleted
 
 
 def test_injection_module_executes_capture_completed(monkeypatch, app_config: AppConfig) -> None:
     monkeypatch.setattr(
-        "asr_ol.modules.injection.public.build_injector",
+        "voxkeep.modules.injection.public.build_injector",
         lambda _cfg: type("FakeInjector", (), {"inject": lambda self, text: text == "hello"})(),
     )
     module = build_injection_module(
@@ -36,7 +36,7 @@ def test_injection_module_executes_capture_completed(monkeypatch, app_config: Ap
 
 def test_injection_module_stop_sets_stop_event(monkeypatch, app_config: AppConfig) -> None:
     monkeypatch.setattr(
-        "asr_ol.modules.injection.public.build_injector",
+        "voxkeep.modules.injection.public.build_injector",
         lambda _cfg: type("FakeInjector", (), {"inject": lambda self, text: True})(),
     )
     stop_event = threading.Event()

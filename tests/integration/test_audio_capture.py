@@ -5,8 +5,8 @@ import queue
 
 import numpy as np
 
-from asr_ol.shared.config import AppConfig
-from asr_ol.modules.runtime.infrastructure.audio_capture import SoundDeviceAudioSource
+from voxkeep.shared.config import AppConfig
+from voxkeep.modules.runtime.infrastructure.audio_capture import SoundDeviceAudioSource
 
 
 def test_callback_only_enqueues_audio_chunk(app_config: AppConfig):

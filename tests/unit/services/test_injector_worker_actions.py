@@ -6,8 +6,8 @@ import threading
 
 import pytest
 
-from asr_ol.shared.events import CaptureCommand
-from asr_ol.modules.injection.infrastructure.injector_worker import InjectorWorker
+from voxkeep.shared.events import CaptureCommand
+from voxkeep.modules.injection.infrastructure.injector_worker import InjectorWorker
 
 
 class FakeInjector:

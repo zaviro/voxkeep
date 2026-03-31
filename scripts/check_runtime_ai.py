@@ -26,7 +26,7 @@ def _check_module(name: str) -> tuple[bool, str]:
 
 
 def _resolve_wake_models(config_path: str = "config/config.yaml") -> list[str]:
-    env_model = os.environ.get("ASR_OL_WAKE_MODEL", "").strip()
+    env_model = os.environ.get("VOXKEEP_WAKE_MODEL", "").strip()
     if env_model:
         return [env_model]
 

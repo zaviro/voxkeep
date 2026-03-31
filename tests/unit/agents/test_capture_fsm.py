@@ -1,7 +1,7 @@
 import pytest
 
-from asr_ol.modules.capture.domain.capture_fsm import CaptureFSM, CaptureState
-from asr_ol.shared.events import VadEvent, WakeEvent
+from voxkeep.modules.capture.domain.capture_fsm import CaptureFSM, CaptureState
+from voxkeep.shared.events import VadEvent, WakeEvent
 
 
 def test_capture_fsm_returns_capture_window_on_speech_end():

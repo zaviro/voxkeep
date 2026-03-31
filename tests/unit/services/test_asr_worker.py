@@ -6,9 +6,9 @@ import threading
 import numpy as np
 import pytest
 
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.events import AsrFinalEvent, ProcessedFrame
-from asr_ol.modules.transcription.infrastructure.asr_worker import AsrWorker
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame
+from voxkeep.modules.transcription.infrastructure.asr_worker import AsrWorker
 
 
 class FakeEngine:

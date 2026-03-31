@@ -88,7 +88,7 @@ def _resolve_model_names(cli_models: Sequence[str], config_path: str) -> list[st
     except Exception:
         pass
 
-    return [os.environ.get("ASR_OL_WAKE_MODEL", "alexa").strip() or "alexa"]
+    return [os.environ.get("VOXKEEP_WAKE_MODEL", "alexa").strip() or "alexa"]
 
 
 def _setup_assets(model_names: Sequence[str], retries: int, retry_sleep: float) -> Path:

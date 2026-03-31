@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import types
 
-from asr_ol.cli import main as cli_main
+from voxkeep.cli import main as cli_main
 
 
 class _Parser:
@@ -80,7 +80,7 @@ def test_main_returns_zero_on_keyboard_interrupt(monkeypatch):
 
 
 def test_cli_uses_bootstrap_runtime_app() -> None:
-    assert cli_main.AppRuntime.__module__ == "asr_ol.bootstrap.runtime_app"
+    assert cli_main.AppRuntime.__module__ == "voxkeep.bootstrap.runtime_app"
 
 
 def test_normalize_cli_argv_defaults_to_run_for_legacy_options() -> None:

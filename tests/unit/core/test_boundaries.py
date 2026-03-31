@@ -1,8 +1,8 @@
 from abc import ABC
 
-from asr_ol.shared.interfaces import ASREngine
-from asr_ol.shared.interfaces import AudioSource
-from asr_ol.shared.events import (
+from voxkeep.shared.interfaces import ASREngine
+from voxkeep.shared.interfaces import AudioSource
+from voxkeep.shared.events import (
     AsrFinalEvent,
     CaptureCommand,
     RawAudioChunk,
@@ -10,7 +10,7 @@ from asr_ol.shared.events import (
     VadEvent,
     WakeEvent,
 )
-from asr_ol.modules.injection.infrastructure.base import Injector
+from voxkeep.modules.injection.infrastructure.base import Injector
 
 
 def test_core_boundaries_are_abstract():

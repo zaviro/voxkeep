@@ -4,10 +4,10 @@ import queue
 import threading
 import time
 
-from asr_ol.shared.events import CaptureCommand
-from asr_ol.modules.capture.public import build_capture_module
-from asr_ol.shared.config import AppConfig
-from asr_ol.shared.types import SpeechBoundaryDetected, TranscriptFinalized, WakeDetected
+from voxkeep.shared.events import CaptureCommand
+from voxkeep.modules.capture.public import build_capture_module
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.types import SpeechBoundaryDetected, TranscriptFinalized, WakeDetected
 
 
 def test_capture_module_emits_capture_completed_and_forwards_command(

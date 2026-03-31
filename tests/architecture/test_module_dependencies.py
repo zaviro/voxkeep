@@ -4,7 +4,7 @@ import ast
 from pathlib import Path
 
 
-SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "asr_ol"
+SRC_ROOT = Path(__file__).resolve().parents[2] / "src" / "voxkeep"
 
 
 def _module_name_for(path: Path) -> str:
@@ -32,12 +32,12 @@ def _find_import_violations() -> list[str]:
             module_parts[1] if len(module_parts) > 1 and module_parts[0] == "modules" else None
         )
         for imported in _imported_names(tree):
-            if module_name.startswith("shared.") and imported.startswith("asr_ol.modules."):
+            if module_name.startswith("shared.") and imported.startswith("voxkeep.modules."):
                 violations.append(f"{module_name} -> {imported}")
                 continue
             if not module_name.startswith("modules."):
                 continue
-            if not imported.startswith("asr_ol.modules."):
+            if not imported.startswith("voxkeep.modules."):
                 continue
             imported_parts = imported.split(".")
             imported_module = imported_parts[2] if len(imported_parts) > 2 else None

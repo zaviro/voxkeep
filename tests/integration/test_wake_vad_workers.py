@@ -4,9 +4,9 @@ import time
 
 import numpy as np
 
-from asr_ol.shared.events import ProcessedFrame
-from asr_ol.modules.capture.infrastructure.silero_worker import SileroVadWorker
-from asr_ol.modules.capture.infrastructure.openwakeword_worker import OpenWakeWordWorker
+from voxkeep.shared.events import ProcessedFrame
+from voxkeep.modules.capture.infrastructure.silero_worker import SileroVadWorker
+from voxkeep.modules.capture.infrastructure.openwakeword_worker import OpenWakeWordWorker
 
 
 class FakeWakeScorer:
