@@ -5,6 +5,50 @@
 
 本项目在 Ubuntu 24.04 上实现本地常驻语音链路：持续 ASR、唤醒后截取一句、并注入当前焦点输入框。
 
+## 5 分钟跑起来
+
+```bash
+make sync-ai
+make setup-ai-models
+make doctor
+make validate-config
+make run
+```
+
+对应的 CLI 入口：
+
+```bash
+python -m asr_ol doctor
+python -m asr_ol config validate --config config/config.yaml
+python -m asr_ol run --config config/config.yaml
+```
+
+说明：
+- `doctor` 检查音频、FunASR、wake/vad 依赖和注入工具是否就绪。
+- `config validate` 在启动前校验 YAML 配置与环境变量覆盖后的结果。
+- `run` 启动本地常驻链路；旧的 `python -m asr_ol --config ...` 调用方式仍然兼容。
+
+## 常用命令
+
+```bash
+make doctor
+make validate-config
+make run
+make cli-check
+make test
+make lint
+make typecheck
+```
+
+等价 CLI：
+
+```bash
+python -m asr_ol doctor
+python -m asr_ol config validate --config config/config.yaml
+python -m asr_ol check
+python -m asr_ol run --config config/config.yaml
+```
+
 ## 项目结构
 
 ```text
@@ -54,6 +98,13 @@ ASR_OL_WAKE_MODEL=hey_jarvis make setup-ai-models
 
 ## 运行
 
+推荐先执行：
+
+```bash
+make doctor
+make validate-config
+```
+
 ```bash
 make run
 ```
@@ -72,7 +123,7 @@ make run
 等价命令：
 
 ```bash
-uv run --python 3.11 python -m asr_ol --config config/config.yaml
+uv run --python 3.11 python -m asr_ol run --config config/config.yaml
 ```
 
 仅启动 Docker ASR 服务（本机运行 asr-ol）：
@@ -97,6 +148,7 @@ make run-ai
 ## 测试与质量检查
 
 ```bash
+make cli-check
 make test
 make lint
 make typecheck
@@ -105,7 +157,8 @@ make precommit
 ```
 
 说明：
-- `make typecheck` 当前通过 `pyright` 做静态类型检查（CI 先以非阻塞模式观察）。
+- `make cli-check` 顺序执行 `ruff check`、`pyright`、`pytest -q`，适合本地提交前快速自检。
+- `make typecheck` 通过 `pyright` 做静态类型检查，并已作为 CI 阻塞门禁。
 - `make test-cov` 输出终端覆盖率摘要并生成 `coverage.xml`。
 
 ### GPT-SoVITS E2E 夹具规范
@@ -143,6 +196,12 @@ make check-ai
 ```
 
 ## 运行前检查
+
+```bash
+make doctor
+```
+
+仍可直接运行底层脚本：
 
 ```bash
 scripts/check_env.sh

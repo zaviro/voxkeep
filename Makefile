@@ -1,4 +1,4 @@
-.PHONY: sync sync-ai setup-ai-models run-ai check-ai test test-cov typecheck run lint fmt check precommit
+.PHONY: sync sync-ai setup-ai-models run-ai check-ai doctor validate-config cli-check test test-cov typecheck run lint fmt check precommit
 
 sync:
 	uv sync --python 3.11 --group dev
@@ -14,6 +14,15 @@ run-ai: setup-ai-models
 
 check-ai: setup-ai-models
 	uv run --python 3.11 python scripts/check_runtime_ai.py
+
+doctor:
+	uv run --python 3.11 python -m asr_ol doctor
+
+validate-config:
+	uv run --python 3.11 python -m asr_ol config validate --config config/config.yaml
+
+cli-check:
+	uv run --python 3.11 python -m asr_ol check
 
 test:
 	uv run --python 3.11 pytest -q

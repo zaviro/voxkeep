@@ -41,7 +41,7 @@ jobs:
       - name: Test
         run: uv run pytest -q
 
-  quality-nonblocking:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
@@ -59,13 +59,14 @@ jobs:
       - name: Sync dependencies
         run: uv sync --group dev
 
-      - name: Pyright (non-blocking)
-        continue-on-error: true
+      - name: Pyright
         run: uv run pyright
 
-      - name: Coverage (non-blocking)
-        continue-on-error: true
-        run: uv run pytest --cov=src/asr_ol --cov-report=term --cov-report=xml
+      - name: Shellcheck
+        run: uv run pre-commit run shellcheck --all-files
+
+      - name: Actionlint
+        run: uv run pre-commit run actionlint --all-files
 
   runtime-ai:
     runs-on: ubuntu-latest

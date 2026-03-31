@@ -15,11 +15,19 @@ make sync
 make sync-ai
 ```
 
+4. Validate local environment and config before runtime work:
+
+```bash
+make doctor
+make validate-config
+```
+
 ## Quality Gates
 
 Run these checks before opening a PR:
 
 ```bash
+make cli-check
 make lint
 make test
 make typecheck
@@ -50,6 +58,8 @@ PRs should include:
 
 - Unit and integration tests are in `tests/unit` and `tests/integration`.
 - E2E tests are in `tests/e2e`; some require opt-in env vars.
+- `make doctor` is the preferred first-stop command when local runtime checks fail.
+- `make validate-config` validates `config/config.yaml` plus `ASR_OL_*` environment overrides.
 - GPT-SoVITS E2E 使用预生成夹具，首次执行：
 
 ```bash
