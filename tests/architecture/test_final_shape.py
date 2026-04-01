@@ -67,7 +67,9 @@ def test_bootstrap_does_not_import_legacy_layers() -> None:
 
 
 def test_bootstrap_does_not_import_capture_internals() -> None:
-    assert _import_violations_for_prefix("bootstrap", "voxkeep.modules.capture.infrastructure.") == []
+    assert (
+        _import_violations_for_prefix("bootstrap", "voxkeep.modules.capture.infrastructure.") == []
+    )
 
 
 def test_repository_has_no_legacy_runtime_files() -> None:

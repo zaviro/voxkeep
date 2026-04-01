@@ -244,9 +244,7 @@ def test_runtime_builds_runtime_ai_workers_through_builder_functions(
     assert runtime.vad_worker is fake_vad_worker
 
 
-def test_runtime_does_not_expose_transcription_private_engine(
-    monkeypatch, app_config: AppConfig
-):
+def test_runtime_does_not_expose_transcription_private_engine(monkeypatch, app_config: AppConfig):
     monkeypatch.setattr(
         "voxkeep.bootstrap.runtime_app.build_capture_module",
         lambda **_kwargs: _FakeCaptureModule(),

@@ -1,6 +1,7 @@
 # ruff: noqa: D100,D101,D102,D107
 from __future__ import annotations
 
+from importlib import import_module
 import logging
 import queue
 import threading
@@ -41,8 +42,8 @@ class SileroVadScorer:
     @classmethod
     def try_create(cls) -> VadScorer:
         try:
-            import torch
-            from silero_vad import load_silero_vad
+            torch = import_module("torch")
+            load_silero_vad = import_module("silero_vad").load_silero_vad
         except Exception as exc:
             logger.warning("silero-vad unavailable; fallback to energy scorer: %s", exc)
             return EnergyVadScorer()
