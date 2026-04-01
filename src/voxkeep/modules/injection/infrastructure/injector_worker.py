@@ -59,7 +59,7 @@ class InjectorWorker:
             except queue.Empty:
                 continue
 
-            ok = self._execute_action(cmd)
+            ok = self.execute_command(cmd)
             if ok:
                 logger.info(
                     "action success session_id=%s keyword=%s action=%s text=%s",
@@ -78,6 +78,10 @@ class InjectorWorker:
                 )
 
         logger.info("injector worker stopped")
+
+    def execute_command(self, cmd: CaptureCommand) -> bool:
+        """Execute one capture command through the configured output path."""
+        return self._execute_action(cmd)
 
     def _execute_action(self, cmd: CaptureCommand) -> bool:
         if cmd.action == "inject_text":

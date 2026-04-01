@@ -76,7 +76,7 @@ class WorkerInjectionModule:
 
     def execute_capture(self, event: CaptureCompleted) -> InjectionResult:
         """Execute one capture event through the configured output action."""
-        ok = self._worker._execute_action(to_capture_command(event))
+        ok = self._worker.execute_command(to_capture_command(event))
         return to_result(event.action, ok)
 
 

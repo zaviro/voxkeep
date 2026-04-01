@@ -7,8 +7,17 @@ import queue
 import threading
 from typing import Callable, Protocol
 
+from voxkeep.modules.capture.infrastructure.openwakeword_worker import OpenWakeWordWorker
+from voxkeep.modules.capture.infrastructure.silero_worker import SileroVadWorker
 from voxkeep.shared.config import AppConfig
-from voxkeep.shared.events import AsrFinalEvent, CaptureCommand, StorageRecord, VadEvent, WakeEvent
+from voxkeep.shared.events import (
+    AsrFinalEvent,
+    CaptureCommand,
+    ProcessedFrame,
+    StorageRecord,
+    VadEvent,
+    WakeEvent,
+)
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 from voxkeep.modules.capture.application.capture_service import (
     to_asr_final_event,
@@ -30,6 +39,19 @@ from voxkeep.shared.types import (
 
 logger = logging.getLogger(__name__)
 _QUEUE_GET_TIMEOUT_S = 0.1
+
+
+class DetectionWorker(Protocol):
+    """Minimal lifecycle contract for capture-side detection workers."""
+
+    def start(self) -> None:
+        raise NotImplementedError
+
+    def join(self, timeout: float | None = None) -> None:
+        raise NotImplementedError
+
+    def is_alive(self) -> bool:
+        raise NotImplementedError
 
 
 class CaptureModule(Protocol):
@@ -185,4 +207,34 @@ def build_capture_module(
     )
 
 
-__all__ = ["CaptureModule", "WorkerCaptureModule", "build_capture_module"]
+def build_capture_detection_workers(
+    *,
+    in_queue: queue.Queue[ProcessedFrame],
+    wake_out_queue: queue.Queue[WakeEvent],
+    vad_out_queue: queue.Queue[VadEvent],
+    stop_event: threading.Event,
+    cfg: AppConfig,
+) -> tuple[DetectionWorker, DetectionWorker]:
+    """Build wake and VAD workers behind the capture module public API."""
+    wake_worker = OpenWakeWordWorker(
+        in_queue=in_queue,
+        out_queue=wake_out_queue,
+        stop_event=stop_event,
+        rules=cfg.enabled_wake_rules,
+    )
+    vad_worker = SileroVadWorker(
+        in_queue=in_queue,
+        out_queue=vad_out_queue,
+        stop_event=stop_event,
+        speech_threshold=cfg.vad_speech_threshold,
+        silence_ms=cfg.vad_silence_ms,
+    )
+    return wake_worker, vad_worker
+
+
+__all__ = [
+    "CaptureModule",
+    "WorkerCaptureModule",
+    "build_capture_detection_workers",
+    "build_capture_module",
+]

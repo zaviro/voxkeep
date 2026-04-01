@@ -162,12 +162,8 @@ class _FakeTranscriptionModule(TranscriptionModule):
 @pytest.fixture(autouse=True)
 def _patch_runtime_ai_worker_builders(monkeypatch) -> None:
     monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_wake_worker",
-        lambda **_kwargs: _FakeWorker(),
-    )
-    monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_vad_worker",
-        lambda **_kwargs: _FakeWorker(),
+        "voxkeep.bootstrap.runtime_app.build_capture_detection_workers",
+        lambda **_kwargs: (_FakeWorker(), _FakeWorker()),
     )
 
 
@@ -237,13 +233,8 @@ def test_runtime_builds_runtime_ai_workers_through_builder_functions(
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
     monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_wake_worker",
-        lambda **_kwargs: fake_wake_worker,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_vad_worker",
-        lambda **_kwargs: fake_vad_worker,
+        "voxkeep.bootstrap.runtime_app.build_capture_detection_workers",
+        lambda **_kwargs: (fake_wake_worker, fake_vad_worker),
         raising=False,
     )
 
@@ -251,6 +242,31 @@ def test_runtime_builds_runtime_ai_workers_through_builder_functions(
 
     assert runtime.wake_worker is fake_wake_worker
     assert runtime.vad_worker is fake_vad_worker
+
+
+def test_runtime_does_not_expose_transcription_private_engine(
+    monkeypatch, app_config: AppConfig
+):
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
+
+    runtime = AppRuntime(app_config)
+
+    assert not hasattr(runtime, "asr_engine")
 
 
 def test_runtime_start_and_stop_call_components_in_order():
