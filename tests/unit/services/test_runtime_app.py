@@ -37,6 +37,10 @@ class _AudioSourceRecorder(_CallRecorder):
 
 
 class _AudioSourceFailure(_AudioSourceRecorder):
+    def start(self) -> None:
+        self._calls.append(f"start:{self._name}")
+        raise RuntimeError("boom")
+
     def stop(self) -> None:
         self._calls.append(f"stop:{self._name}")
         raise RuntimeError("boom")
@@ -499,3 +503,53 @@ def test_run_forever_raises_when_worker_is_unhealthy():
 
     assert runtime.stop_event.is_set() is True
     assert runtime.fatal_error == "worker stopped unexpectedly: asr_worker"
+
+
+def test_find_unhealthy_workers_returns_all_dead_workers():
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime._startup_workers = (
+        runtime._worker_handle("wake_worker", _CallRecorder("wake_worker", []), 1),
+        runtime._worker_handle("vad_worker", _CallRecorder("vad_worker", []), 1),
+    )
+
+    assert runtime._find_unhealthy_workers() == ("wake_worker", "vad_worker")
+
+
+def test_run_forever_exits_cleanly_when_stop_event_already_set():
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime.stop_event = threading.Event()
+    runtime.stop_event.set()
+    runtime._fatal_error = None
+    runtime._startup_workers = ()
+
+    runtime.run_forever()
+
+    assert runtime.fatal_error is None
+
+
+def test_start_propagates_audio_source_start_failure():
+    calls: list[str] = []
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime.stop_event = threading.Event()
+    runtime.storage_worker = _CallRecorder("storage_worker", calls)
+    runtime.capture_worker = _CallRecorder("capture_worker", calls)
+    runtime.injector_worker = _CallRecorder("injector_worker", calls)
+    runtime.wake_worker = _CallRecorder("wake_worker", calls)
+    runtime.vad_worker = _CallRecorder("vad_worker", calls)
+    runtime.asr_worker = _CallRecorder("asr_worker", calls)
+    runtime.audio_bus = _CallRecorder("audio_bus", calls)
+    runtime.audio_source = _AudioSourceFailure("audio_source", calls)
+    runtime._startup_workers = (
+        runtime._worker_handle("storage_worker", runtime.storage_worker, 2),
+        runtime._worker_handle("capture_worker", runtime.capture_worker, 2),
+        runtime._worker_handle("injector_worker", runtime.injector_worker, 2),
+        runtime._worker_handle("wake_worker", runtime.wake_worker, 2),
+        runtime._worker_handle("vad_worker", runtime.vad_worker, 2),
+        runtime._worker_handle("asr_worker", runtime.asr_worker, 3),
+        runtime._worker_handle("audio_bus", runtime.audio_bus, 2),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        runtime.start()
+
+    assert calls[-1] == "start:audio_source"

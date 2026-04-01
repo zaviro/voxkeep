@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
-from voxkeep.shared.config import AppConfig, load_config
+from voxkeep.shared.config import AppConfig, WakeRuleConfig, load_config
 
 
 def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):
@@ -72,3 +72,74 @@ def test_app_config_validation_rejects_invalid_values(
 ):
     with pytest.raises(ValueError, match=match_text):
         replace(app_config, **overrides)
+
+
+def test_app_config_rejects_duplicate_wake_keywords(app_config: AppConfig) -> None:
+    with pytest.raises(ValueError, match="duplicate keyword"):
+        replace(
+            app_config,
+            wake_rules=(
+                WakeRuleConfig("alexa", True, 0.5, "inject_text"),
+                WakeRuleConfig("alexa", True, 0.6, "openclaw_agent"),
+            ),
+        )
+
+
+def test_app_config_rejects_empty_wake_keyword(app_config: AppConfig) -> None:
+    with pytest.raises(ValueError, match="empty keyword"):
+        replace(
+            app_config,
+            wake_rules=(WakeRuleConfig("", True, 0.5, "inject_text"),),
+        )
+
+
+def test_app_config_rejects_empty_wake_action(app_config: AppConfig) -> None:
+    with pytest.raises(ValueError, match="action must not be empty"):
+        replace(
+            app_config,
+            wake_rules=(WakeRuleConfig("alexa", True, 0.5, " "),),
+        )
+
+
+def test_load_config_raises_when_file_missing(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError, match="config file not found"):
+        load_config(tmp_path / "missing.yaml")
+
+
+def test_load_config_raises_when_yaml_root_is_not_mapping(tmp_path) -> None:
+    cfg_file = tmp_path / "bad.yaml"
+    cfg_file.write_text("- not-a-mapping\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="config root must be a mapping"):
+        load_config(cfg_file)
+
+
+def test_load_config_raises_when_wake_rule_item_is_not_mapping(tmp_path) -> None:
+    cfg_file = tmp_path / "bad_rules.yaml"
+    cfg_file.write_text("wake:\n  rules:\n    - alexa\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="wake.rules items must be mappings"):
+        load_config(cfg_file)
+
+
+def test_enabled_wake_rules_filters_disabled_rules(app_config: AppConfig) -> None:
+    cfg = replace(
+        app_config,
+        wake_rules=(
+            WakeRuleConfig("alexa", True, 0.5, "inject_text"),
+            WakeRuleConfig("hey_jarvis", False, 0.6, "openclaw_agent"),
+        ),
+    )
+
+    assert cfg.enabled_wake_rules == (WakeRuleConfig("alexa", True, 0.5, "inject_text"),)
+
+
+def test_frame_samples_property_is_derived_correctly(app_config: AppConfig) -> None:
+    cfg = replace(app_config, sample_rate=16000, frame_ms=32)
+
+    assert cfg.frame_samples == 512
+
+
+def test_asr_ws_url_uses_ws_or_wss_based_on_ssl(app_config: AppConfig) -> None:
+    assert replace(app_config, funasr_use_ssl=False).asr_ws_url == "ws://127.0.0.1:10096/"
+    assert replace(app_config, funasr_use_ssl=True).asr_ws_url == "wss://127.0.0.1:10096/"
