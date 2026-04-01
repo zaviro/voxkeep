@@ -17,7 +17,7 @@
 - Modify: `src/voxkeep/modules/capture/public.py`
 - Modify: `src/voxkeep/modules/injection/public.py`
 - Modify: `src/voxkeep/modules/transcription/public.py`
-- Modify: `tests/unit/services/test_runtime_app.py`
+- Modify: `tests/unit/bootstrap/test_runtime_app.py`
 - Modify: `tests/unit/modules/injection/test_injection_public_api.py`
 - Test: `tests/architecture/test_module_dependencies.py`
 
@@ -30,7 +30,7 @@ Add tests that prove:
 **Step 2: Run test to verify it fails**
 
 Run:
-- `uv run --python 3.11 python -m pytest tests/unit/services/test_runtime_app.py -q`
+- `uv run --python 3.11 python -m pytest tests/unit/bootstrap/test_runtime_app.py -q`
 - `uv run --python 3.11 python -m pytest tests/unit/modules/injection/test_injection_public_api.py -q`
 
 Expected: FAIL because the current implementation still reaches through private members.
@@ -44,7 +44,7 @@ Expected: FAIL because the current implementation still reaches through private 
 **Step 4: Run test to verify it passes**
 
 Run:
-- `uv run --python 3.11 python -m pytest tests/unit/services/test_runtime_app.py -q`
+- `uv run --python 3.11 python -m pytest tests/unit/bootstrap/test_runtime_app.py -q`
 - `uv run --python 3.11 python -m pytest tests/unit/modules/injection/test_injection_public_api.py -q`
 - `uv run --python 3.11 python -m pytest tests/architecture -q`
 
@@ -57,7 +57,7 @@ git add src/voxkeep/bootstrap/runtime_app.py \
   src/voxkeep/modules/capture/public.py \
   src/voxkeep/modules/injection/public.py \
   src/voxkeep/modules/transcription/public.py \
-  tests/unit/services/test_runtime_app.py \
+  tests/unit/bootstrap/test_runtime_app.py \
   tests/unit/modules/injection/test_injection_public_api.py \
   docs/plans/2026-04-01-runtime-boundary-cleanup-design.md \
   docs/plans/2026-04-01-runtime-boundary-cleanup.md
@@ -72,7 +72,7 @@ git commit -m "refactor: tighten runtime module boundaries"
 - Create: `src/voxkeep/shared/config_schema.py`
 - Create: `src/voxkeep/shared/config_loader.py`
 - Modify: `src/voxkeep/shared/config.py`
-- Test: `tests/unit/core/test_config.py`
+- Test: `tests/unit/shared/test_config.py`
 
 **Step 1: Write the failing test**
 
@@ -82,7 +82,7 @@ Add tests that prove:
 
 **Step 2: Run test to verify it fails**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/core/test_config.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/shared/test_config.py -q`
 Expected: FAIL once compatibility expectations are added before the split.
 
 **Step 3: Write minimal implementation**
@@ -93,7 +93,7 @@ Expected: FAIL once compatibility expectations are added before the split.
 **Step 4: Run test to verify it passes**
 
 Run:
-- `uv run --python 3.11 python -m pytest tests/unit/core/test_config.py -q`
+- `uv run --python 3.11 python -m pytest tests/unit/shared/test_config.py -q`
 - `make validate-config`
 
 Expected: PASS
@@ -106,24 +106,24 @@ git add src/voxkeep/shared/config.py \
   src/voxkeep/shared/config_env.py \
   src/voxkeep/shared/config_schema.py \
   src/voxkeep/shared/config_loader.py \
-  tests/unit/core/test_config.py
+  tests/unit/shared/test_config.py
 git commit -m "refactor: split shared config loader responsibilities"
 ```
 
 ### Task 3: Align Test Layout and Docs
 
 **Files:**
-- Move: `tests/unit/core/test_config.py`
-- Move: `tests/unit/core/test_boundaries.py`
-- Move: `tests/unit/core/test_queue_utils.py`
-- Move: `tests/unit/services/test_runtime_app.py`
-- Move: `tests/unit/infra/test_funasr_ws.py`
-- Move: `tests/unit/infra/test_openwakeword_scorer.py`
-- Move: `tests/unit/infra/test_storage_worker_init.py`
-- Move: `tests/unit/agents/test_capture_fsm.py`
-- Move: `tests/unit/agents/test_capture_worker_routing.py`
-- Move: `tests/unit/agents/test_transcript_extractor.py`
-- Move: `tests/unit/tools/test_injector.py`
+- Move: `tests/unit/shared/test_config.py`
+- Move: `tests/unit/shared/test_boundaries.py`
+- Move: `tests/unit/shared/test_queue_utils.py`
+- Move: `tests/unit/bootstrap/test_runtime_app.py`
+- Move: `tests/unit/modules/transcription/test_funasr_ws.py`
+- Move: `tests/unit/modules/capture/test_openwakeword_scorer.py`
+- Move: `tests/unit/modules/storage/test_sqlite_storage_worker.py`
+- Move: `tests/unit/modules/capture/test_capture_fsm.py`
+- Move: `tests/unit/modules/capture/test_capture_worker_routing.py`
+- Move: `tests/unit/modules/capture/test_transcript_extractor.py`
+- Move: `tests/unit/modules/injection/test_injector_factory.py`
 - Modify: `AGENTS.md`
 - Modify: `docs/plans/2026-03-29-modular-monolith-refactor.md`
 - Modify: `docs/plans/2026-03-30-modular-monolith-final-shape.md`

@@ -170,7 +170,7 @@ git commit -m "refactor: move storage behind module public api"
 - Modify: `src/asr_ol/modules/injection/public.py`
 - Modify: `src/asr_ol/services/runtime_app.py`
 - Test: `tests/unit/modules/injection/test_public_api.py`
-- Test: `tests/unit/services/test_injector_worker_actions.py`
+- Test: `tests/unit/modules/injection/test_injector_worker_actions.py`
 
 **Step 1: Write the failing test**
 
@@ -192,13 +192,13 @@ Expected: FAIL with missing module public API
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/modules/injection/test_public_api.py tests/unit/services/test_injector_worker_actions.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/modules/injection/test_public_api.py tests/unit/modules/injection/test_injector_worker_actions.py -q`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/asr_ol/modules/injection src/asr_ol/services/runtime_app.py tests/unit/modules/injection/test_public_api.py tests/unit/services/test_injector_worker_actions.py
+git add src/asr_ol/modules/injection src/asr_ol/services/runtime_app.py tests/unit/modules/injection/test_public_api.py tests/unit/modules/injection/test_injector_worker_actions.py
 git commit -m "refactor: move injection behind module public api"
 ```
 
@@ -211,8 +211,8 @@ git commit -m "refactor: move injection behind module public api"
 - Modify: `src/asr_ol/modules/capture/public.py`
 - Modify: `src/asr_ol/services/runtime_app.py`
 - Test: `tests/unit/modules/capture/test_public_api.py`
-- Test: `tests/unit/agents/test_capture_fsm.py`
-- Test: `tests/unit/agents/test_capture_worker_routing.py`
+- Test: `tests/unit/modules/capture/test_capture_fsm.py`
+- Test: `tests/unit/modules/capture/test_capture_worker_routing.py`
 
 **Step 1: Write the failing test**
 
@@ -237,13 +237,13 @@ Expected: FAIL until public API and event output exist
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/modules/capture/test_public_api.py tests/unit/agents/test_capture_fsm.py tests/unit/agents/test_capture_worker_routing.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/modules/capture/test_public_api.py tests/unit/modules/capture/test_capture_fsm.py tests/unit/modules/capture/test_capture_worker_routing.py -q`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/asr_ol/modules/capture src/asr_ol/services/runtime_app.py tests/unit/modules/capture/test_public_api.py tests/unit/agents/test_capture_fsm.py tests/unit/agents/test_capture_worker_routing.py
+git add src/asr_ol/modules/capture src/asr_ol/services/runtime_app.py tests/unit/modules/capture/test_public_api.py tests/unit/modules/capture/test_capture_fsm.py tests/unit/modules/capture/test_capture_worker_routing.py
 git commit -m "refactor: move capture behind module public api"
 ```
 
@@ -256,8 +256,8 @@ git commit -m "refactor: move capture behind module public api"
 - Modify: `src/asr_ol/modules/transcription/public.py`
 - Modify: `src/asr_ol/services/runtime_app.py`
 - Test: `tests/unit/modules/transcription/test_public_api.py`
-- Test: `tests/unit/infra/test_funasr_ws.py`
-- Test: `tests/unit/services/test_asr_worker.py`
+- Test: `tests/unit/modules/transcription/test_funasr_ws.py`
+- Test: `tests/unit/modules/transcription/test_asr_worker.py`
 
 **Step 1: Write the failing test**
 
@@ -282,13 +282,13 @@ Expected: FAIL with missing subscription path
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/modules/transcription/test_public_api.py tests/unit/infra/test_funasr_ws.py tests/unit/services/test_asr_worker.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/modules/transcription/test_public_api.py tests/unit/modules/transcription/test_funasr_ws.py tests/unit/modules/transcription/test_asr_worker.py -q`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/asr_ol/modules/transcription src/asr_ol/services/runtime_app.py tests/unit/modules/transcription/test_public_api.py tests/unit/infra/test_funasr_ws.py tests/unit/services/test_asr_worker.py
+git add src/asr_ol/modules/transcription src/asr_ol/services/runtime_app.py tests/unit/modules/transcription/test_public_api.py tests/unit/modules/transcription/test_funasr_ws.py tests/unit/modules/transcription/test_asr_worker.py
 git commit -m "refactor: move transcription behind module public api"
 ```
 
@@ -300,7 +300,7 @@ git commit -m "refactor: move transcription behind module public api"
 - Modify: `src/asr_ol/api/runtime_status.py`
 - Delete: `src/asr_ol/services/runtime_app.py`
 - Delete: obsolete old-path wrappers after migration
-- Test: `tests/unit/services/test_runtime_app.py`
+- Test: `tests/unit/bootstrap/test_runtime_app.py`
 - Test: `tests/unit/api/test_runtime_status.py`
 - Test: `tests/e2e/test_cli_help.py`
 
@@ -313,7 +313,7 @@ def test_cli_uses_bootstrap_runtime_app() -> None:
 
 **Step 2: Run test to verify it fails**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/services/test_runtime_app.py tests/e2e/test_cli_help.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/bootstrap/test_runtime_app.py tests/e2e/test_cli_help.py -q`
 Expected: FAIL until imports move to bootstrap path
 
 **Step 3: Write minimal implementation**
@@ -323,13 +323,13 @@ Expected: FAIL until imports move to bootstrap path
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/services/test_runtime_app.py tests/unit/api/test_runtime_status.py tests/e2e/test_cli_help.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/bootstrap/test_runtime_app.py tests/unit/api/test_runtime_status.py tests/e2e/test_cli_help.py -q`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/asr_ol/bootstrap src/asr_ol/cli/main.py src/asr_ol/api/runtime_status.py tests/unit/services/test_runtime_app.py tests/unit/api/test_runtime_status.py tests/e2e/test_cli_help.py
+git add src/asr_ol/bootstrap src/asr_ol/cli/main.py src/asr_ol/api/runtime_status.py tests/unit/bootstrap/test_runtime_app.py tests/unit/api/test_runtime_status.py tests/e2e/test_cli_help.py
 git commit -m "refactor: centralize runtime composition in bootstrap"
 ```
 

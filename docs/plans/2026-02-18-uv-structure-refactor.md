@@ -77,10 +77,10 @@ Expected: only valid new-path references (or none for removed old modules).
 **Step 1: Move tests**
 
 - Unit:
-  - `tests/unit/core/test_config.py`
-  - `tests/unit/core/test_boundaries.py`
-  - `tests/unit/agents/test_capture_fsm.py`
-  - `tests/unit/tools/test_injector.py`
+  - `tests/unit/shared/test_config.py`
+  - `tests/unit/shared/test_boundaries.py`
+  - `tests/unit/modules/capture/test_capture_fsm.py`
+  - `tests/unit/modules/injection/test_injector_factory.py`
 - Integration:
   - `tests/integration/test_audio_bus.py`
   - `tests/integration/test_audio_capture.py`

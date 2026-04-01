@@ -76,7 +76,7 @@ Expected: FAIL because shared currently re-exports core
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/unit/core/test_config.py tests/unit/core/test_queue_utils.py tests/unit/core/test_boundaries.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/unit/shared/test_config.py tests/unit/shared/test_queue_utils.py tests/unit/shared/test_boundaries.py -q`
 Expected: PASS after tests改到 `shared`
 
 **Step 5: Commit**
@@ -109,7 +109,7 @@ def test_bootstrap_uses_runtime_module_infrastructure_only() -> None:
 
 **Step 2: Run test to verify it fails**
 
-Run: `uv run --python 3.11 python -m pytest tests/architecture/test_final_shape.py tests/unit/services/test_runtime_app.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/architecture/test_final_shape.py tests/unit/bootstrap/test_runtime_app.py -q`
 Expected: FAIL until runtime imports move
 
 **Step 3: Write minimal implementation**
@@ -119,7 +119,7 @@ Expected: FAIL until runtime imports move
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/integration/test_audio_bus.py tests/integration/test_audio_capture.py tests/unit/services/test_runtime_app.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/integration/test_audio_bus.py tests/integration/test_audio_capture.py tests/unit/bootstrap/test_runtime_app.py -q`
 Expected: PASS
 
 **Step 5: Commit**
@@ -159,7 +159,7 @@ Expected: FAIL because bootstrap/modules still import infra wake/vad
 
 **Step 4: Run test to verify it passes**
 
-Run: `uv run --python 3.11 python -m pytest tests/integration/test_wake_vad_workers.py tests/unit/infra/test_openwakeword_scorer.py tests/unit/services/test_runtime_app.py -q`
+Run: `uv run --python 3.11 python -m pytest tests/integration/test_wake_vad_workers.py tests/unit/modules/capture/test_openwakeword_scorer.py tests/unit/bootstrap/test_runtime_app.py -q`
 Expected: PASS
 
 **Step 5: Commit**

@@ -81,7 +81,7 @@ If an environment check fails, do not claim a code fix until the environment pro
 - `make precommit`: run all pre-commit hooks.
 
 Useful targeted commands:
-- `uv run --python 3.11 python -m pytest tests/unit/agents/test_capture_fsm.py -q`
+- `uv run --python 3.11 python -m pytest tests/unit/modules/capture/test_capture_fsm.py -q`
 - `uv run --python 3.11 python -m pytest tests/integration/test_audio_bus.py -q`
 - `uv run --python 3.11 python -m pytest tests/architecture -q`
 

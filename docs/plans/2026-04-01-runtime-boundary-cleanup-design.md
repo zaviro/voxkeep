@@ -64,8 +64,8 @@
 ## Validation
 
 - `uv run --python 3.11 python -m pytest tests/architecture -q`
-- `uv run --python 3.11 python -m pytest tests/unit/services/test_runtime_app.py -q`
-- `uv run --python 3.11 python -m pytest tests/unit/core/test_config.py -q`
+- `uv run --python 3.11 python -m pytest tests/unit/bootstrap/test_runtime_app.py -q`
+- `uv run --python 3.11 python -m pytest tests/unit/shared/test_config.py -q`
 - `uv run --python 3.11 python -m pytest tests/unit -q`
 - `make validate-config`
 
