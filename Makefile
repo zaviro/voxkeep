@@ -1,4 +1,4 @@
-.PHONY: sync sync-ai setup-ai-models run-ai check-ai doctor validate-config cli-check test test-cov typecheck run lint fmt check precommit
+.PHONY: sync sync-ai setup-ai-models run-ai check-ai doctor validate-config cli-check test test-fast test-unit test-architecture test-integration test-e2e test-cov typecheck run lint fmt check precommit
 
 sync:
 	uv sync --python 3.11 --group dev
@@ -26,6 +26,21 @@ cli-check:
 
 test:
 	uv run --python 3.11 python -m pytest -q
+
+test-fast:
+	uv run --python 3.11 python -m pytest tests/unit tests/architecture -q
+
+test-unit:
+	uv run --python 3.11 python -m pytest tests/unit -q
+
+test-architecture:
+	uv run --python 3.11 python -m pytest tests/architecture -q
+
+test-integration:
+	uv run --python 3.11 python -m pytest tests/integration -q
+
+test-e2e:
+	uv run --python 3.11 python -m pytest tests/e2e -q
 
 test-cov:
 	uv run --python 3.11 python -m pytest --cov=src/voxkeep --cov-report=term --cov-report=xml

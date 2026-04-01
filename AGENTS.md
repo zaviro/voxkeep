@@ -40,6 +40,8 @@ Runtime configuration lives in `config/config.yaml`.
 
 ## Environment Assumptions
 - Use `uv run --python 3.11 ...` for Python commands.
+- `make sync` is the default install path for everyday development.
+- `make sync-ai` is required when working on real wake/VAD/runtime AI behavior, or when you need a local environment that includes `openwakeword`, `silero-vad`, and `torch`.
 - The local runtime assumes Linux audio/session tooling is available.
 - Real runtime behavior depends on external prerequisites:
   - reachable FunASR service,
@@ -64,6 +66,11 @@ If an environment check fails, do not claim a code fix until the environment pro
 - `make check-ai`: verify runtime AI imports and model readiness.
 - `make validate-config`: validate `config/config.yaml`.
 - `make cli-check`: run CLI-level checks.
+- `make test-fast`: run `tests/unit` and `tests/architecture` for the default fast feedback loop.
+- `make test-unit`: run `tests/unit`.
+- `make test-architecture`: run `tests/architecture`.
+- `make test-integration`: run `tests/integration`.
+- `make test-e2e`: run `tests/e2e`.
 - `make run`: start the local runtime via `scripts/run_local.sh`.
 - `make run-ai`: prepare AI assets and start the full local runtime.
 - `make fmt`: run Ruff formatter on `src`, `tests`, and `scripts`.
@@ -101,6 +108,11 @@ Useful targeted commands:
 ## Testing Guidelines
 Testing uses `pytest` with `testpaths = ["tests"]`.
 
+Default frequency tiers:
+- High-frequency: `tests/unit` and `tests/architecture`. These should stay fast, stable, and free of real runtime dependencies.
+- Change-triggered: `tests/integration`. Run when changing queues, workers, lifecycle handling, runtime wiring, storage behavior, or module coordination.
+- Low-frequency acceptance: `tests/e2e` and any test requiring real OpenClaw, GPT-SoVITS fixtures, real AI/runtime dependencies, or external services. Run these when the relevant environment changes or when modifying the corresponding runtime path.
+
 Choose the narrowest test set that proves the change:
 - Pure logic or state transitions: add or update unit tests.
 - Queueing, worker lifecycle, shutdown, or module wiring: run integration tests.
@@ -120,6 +132,7 @@ Choose the narrowest test set that proves the change:
 
 ## Definition of Done
 - Python code changes: run `make fmt`, `make lint`, and `make typecheck`.
+- If local `make typecheck` fails because runtime-ai packages are intentionally not installed, do not treat that as a code regression. Either install `make sync-ai` or explicitly report the environment limitation.
 - Logic changes: add or update the narrowest relevant tests before claiming completion.
 - Runtime pipeline changes: run the most relevant integration tests.
 - Architecture or module-boundary changes: run `uv run --python 3.11 python -m pytest tests/architecture -q`.

@@ -31,6 +31,9 @@ python -m voxkeep run --config config/config.yaml
 ## 常用命令
 
 ```bash
+make test-fast
+make test-integration
+make test-e2e
 make doctor
 make validate-config
 make run
@@ -72,13 +75,23 @@ tests/
 
 项目运行时锁定 Python 3.11。
 
-1. 同步开发依赖（3.11）：
+推荐把依赖分成两层理解：
+
+- `make sync`：基础开发依赖。适合日常写代码、跑单测、跑架构测试、lint、格式化。
+- `make sync-ai`：在 `make sync` 之上额外安装 runtime-ai 依赖。适合调试真实 wake/VAD/runtime 链路，或需要本机完整 AI 环境时使用。
+
+runtime-ai 依赖当前包括：
+- `openwakeword`：唤醒词检测
+- `silero-vad`：语音活动检测
+- `torch`：`silero-vad` 的底层推理依赖
+
+1. 仅同步基础开发依赖（3.11）：
 
 ```bash
 make sync
 ```
 
-2. 安装 wake/vad 运行时依赖（3.11）：
+2. 如果要调试真实 wake/vad/runtime 链路，再安装 runtime-ai 依赖（3.11）：
 
 ```bash
 make sync-ai
@@ -148,6 +161,9 @@ make run-ai
 ## 测试与质量检查
 
 ```bash
+make test-fast
+make test-integration
+make test-e2e
 make cli-check
 make test
 make lint
@@ -157,9 +173,30 @@ make precommit
 ```
 
 说明：
+- `make test-fast` 只跑 `tests/unit` 和 `tests/architecture`，适合高频本地开发循环。
+- `make test-integration` 跑 `tests/integration`，适合改动 worker、队列、生命周期、模块 wiring 时使用。
+- `make test-e2e` 跑 `tests/e2e`，适合做低频验收，不建议每次小改都跑。
 - `make cli-check` 顺序执行 `ruff check`、`pyright`、`pytest -q`，适合本地提交前快速自检。
-- `make typecheck` 通过 `pyright` 做静态类型检查，并已作为 CI 阻塞门禁。
+- `make typecheck` 通过 `pyright` 做静态类型检查；如果本地未安装 `runtime-ai` 依赖，`openwakeword` / `silero-vad` / `torch` 的导入可能报缺失。
 - `make test-cov` 输出终端覆盖率摘要并生成 `coverage.xml`。
+
+### 推荐运行频率
+
+- 高频必跑：
+  - `make fmt`
+  - `make lint`
+  - `make test-fast`
+- 改动对应模块时追加：
+  - `make test-integration`
+- 低频验收或环境变更后再跑：
+  - `make test-e2e`
+  - `VOXKEEP_RUN_OPENCLAW_REAL=1 ...`
+  - `VOXKEEP_RUN_GPTSOVITS_E2E=1 ...`
+
+判断原则：
+- 不依赖外部服务、设备、模型、桌面会话的测试，优先归到高频。
+- 失败更像环境问题而非代码回归的测试，归到低频验收。
+- 真实 OpenClaw、真实 GPT-SoVITS、真实 runtime AI 链路，只在环境初始化、依赖升级或对应链路改动时跑。
 
 ### GPT-SoVITS E2E 夹具规范
 
