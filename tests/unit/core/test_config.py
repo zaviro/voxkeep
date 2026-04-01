@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, replace
+from importlib import import_module
 
 import pytest
 
@@ -143,3 +144,12 @@ def test_frame_samples_property_is_derived_correctly(app_config: AppConfig) -> N
 def test_asr_ws_url_uses_ws_or_wss_based_on_ssl(app_config: AppConfig) -> None:
     assert replace(app_config, funasr_use_ssl=False).asr_ws_url == "ws://127.0.0.1:10096/"
     assert replace(app_config, funasr_use_ssl=True).asr_ws_url == "wss://127.0.0.1:10096/"
+
+
+def test_config_split_modules_reexport_public_api() -> None:
+    schema = import_module("voxkeep.shared.config_schema")
+    loader = import_module("voxkeep.shared.config_loader")
+
+    assert schema.AppConfig is AppConfig
+    assert schema.WakeRuleConfig is WakeRuleConfig
+    assert loader.load_config is load_config
