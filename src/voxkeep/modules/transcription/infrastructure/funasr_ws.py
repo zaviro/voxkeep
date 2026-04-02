@@ -10,8 +10,10 @@ import threading
 import time
 from typing import Any
 import uuid
+from typing import cast
 
 from voxkeep.modules.transcription.application.backend_events import BackendTranscriptEvent
+from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent
 from voxkeep.shared.interfaces import ASREngine
 from voxkeep.shared.config import AppConfig
 from voxkeep.shared.events import ProcessedFrame
@@ -37,9 +39,9 @@ class FunAsrWsEngine(ASREngine):
         self._thread: threading.Thread | None = None
 
     @property
-    def final_queue(self) -> queue.Queue[BackendTranscriptEvent]:
+    def final_queue(self) -> queue.Queue[TranscriptionBackendEvent]:
         """Return queue receiving finalized transcript events."""
-        return self._final_queue
+        return cast(queue.Queue[TranscriptionBackendEvent], self._final_queue)
 
     def start(self) -> None:
         """Start background asyncio loop thread once."""

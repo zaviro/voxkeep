@@ -7,9 +7,11 @@ import logging
 import queue
 import threading
 
-from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent
-from voxkeep.shared.interfaces import ASREngine
 from voxkeep.modules.transcription.application.transcription_service import to_asr_final_event
+from voxkeep.modules.transcription.contracts import (
+    TranscriptionBackendEvent,
+    TranscriptionEngine,
+)
 from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 
@@ -30,7 +32,7 @@ class AsrWorker:
         capture_queue: queue.Queue[AsrFinalEvent],
         storage_queue: queue.Queue[StorageRecord],
         stop_event: threading.Event,
-        engine: ASREngine,
+        engine: TranscriptionEngine,
         store_final_only: bool,
     ) -> None:
         """Create worker dependencies."""
