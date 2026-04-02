@@ -505,6 +505,40 @@ def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app
     assert built["cfg"] is app_config
 
 
+def test_runtime_builds_qwen_transcription_backend_through_public_api(
+    monkeypatch, app_config: AppConfig
+) -> None:
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    built: dict[str, object] = {}
+    qwen_cfg = replace(app_config, asr_backend="qwen_vllm")
+
+    def _build_transcription_module(**kwargs):  # type: ignore[no-untyped-def]
+        built.update(kwargs)
+        return _FakeTranscriptionModule()
+
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
+        _build_transcription_module,
+    )
+
+    runtime = AppRuntime(qwen_cfg)
+
+    assert runtime.asr_worker is not None
+    assert built["cfg"] is qwen_cfg
+    assert built["cfg"].asr_backend == "qwen_vllm"
+
+
 def test_run_forever_raises_when_worker_is_unhealthy():
     calls: list[str] = []
     runtime = AppRuntime.__new__(AppRuntime)

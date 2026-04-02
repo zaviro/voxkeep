@@ -10,7 +10,7 @@ The repository is in the modular-monolith shape described by [docs/plans/2026-03
 
 Primary runtime code lives in `src/voxkeep/`:
 - `modules/capture/`: wake/VAD/ASR event orchestration and capture FSM.
-- `modules/transcription/`: FunASR websocket adapter and transcription-facing public API.
+- `modules/transcription/`: backend adapters and transcription-facing public API.
 - `modules/injection/`: text injection and action execution.
 - `modules/storage/`: persistence and storage workers.
 - `modules/runtime/`: audio capture, preprocessing, audio bus, and runtime infrastructure.
@@ -44,10 +44,13 @@ Runtime configuration lives in `config/config.yaml`.
 - `make sync-ai` is required when working on real wake/VAD/runtime AI behavior, or when you need a local environment that includes `openwakeword`, `silero-vad`, and `torch`.
 - The local runtime assumes Linux audio/session tooling is available.
 - Real runtime behavior depends on external prerequisites:
-  - reachable FunASR service,
+  - reachable external ASR service,
   - available microphone source,
   - prepared wake/VAD runtime dependencies,
   - matching injector backend for the current desktop session.
+- Preferred long-term ASR path is `qwen_vllm` against an externally managed local service.
+- VoxKeep should not start or stop the Qwen `vLLM` service.
+- Before diagnosing Qwen runtime failures, validate the external ASR endpoint separately from VoxKeep.
 - Session type matters:
   - `XDG_SESSION_TYPE=x11`: expect `xdotool`.
   - `XDG_SESSION_TYPE=wayland`: expect `ydotool` and `ydotoold`, plus required permissions.
@@ -89,7 +92,7 @@ Useful targeted commands:
 - Runtime wiring belongs in `bootstrap/`. Do not move business logic back into bootstrap builders.
 - `modules/runtime/` owns microphone capture, preprocessing, and audio fan-out.
 - `modules/capture/` owns wake/VAD/ASR event coordination and the capture state machine.
-- `modules/transcription/` owns FunASR communication.
+- `modules/transcription/` owns ASR backend communication.
 - `modules/injection/` owns text injection and action execution.
 - `modules/storage/` owns durable persistence.
 - Module-to-module collaboration must go through public contracts, not implementation imports.
