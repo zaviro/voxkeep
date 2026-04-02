@@ -162,6 +162,56 @@ def test_run_reconnects_after_failure(app_config: AppConfig, monkeypatch):
     assert len(attempts) == 2
 
 
+def test_run_session_builds_connect_url_from_new_asr_fields(
+    app_config: AppConfig, monkeypatch
+) -> None:
+    cfg = replace(
+        app_config,
+        asr_external_host="10.0.0.8",
+        asr_external_port=3210,
+        asr_external_path="/ws",
+        asr_external_use_ssl=True,
+    )
+    engine = FunAsrWsEngine(cfg=cfg, stop_event=threading.Event())
+    connect_urls: list[str] = []
+    created: list[FakeTask] = []
+
+    monkeypatch.setattr(
+        "websockets.connect",
+        lambda url, **kwargs: connect_urls.append(url) or FakeConnectContext(FakeWsSender()),
+    )
+
+    async def fake_sender(ws: object) -> None:
+        _ = ws
+
+    async def fake_receiver(ws: object) -> None:
+        _ = ws
+
+    async def fake_to_thread(func, *args):  # type: ignore[no-untyped-def]
+        _ = (func, args)
+        return True
+
+    def fake_create_task(coro):  # type: ignore[no-untyped-def]
+        coro.close()
+        task = FakeTask()
+        created.append(task)
+        return task
+
+    async def fake_wait(tasks, return_when):  # type: ignore[no-untyped-def]
+        _ = return_when
+        return {created[2]}, {created[0], created[1]}
+
+    monkeypatch.setattr(engine, "_sender", fake_sender)
+    monkeypatch.setattr(engine, "_receiver", fake_receiver)
+    monkeypatch.setattr(asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(asyncio, "create_task", fake_create_task)
+    monkeypatch.setattr(asyncio, "wait", fake_wait)
+
+    asyncio.run(engine._run_session())
+
+    assert connect_urls == [cfg.asr_ws_url]
+
+
 def test_submit_frame_drops_when_input_queue_is_full(app_config: AppConfig) -> None:
     stop = threading.Event()
     engine = FunAsrWsEngine(cfg=replace(app_config, max_queue_size=1), stop_event=stop)
