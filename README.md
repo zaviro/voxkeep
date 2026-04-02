@@ -123,15 +123,23 @@ make run
 ```
 
 默认行为：
-- `scripts/run_local.sh` 会通过 `docker compose up -d funasr` 管理 ASR 服务生命周期；
+- `scripts/run_local.sh` 默认按 `managed` 模式通过 `docker compose up -d funasr` 管理 FunASR 服务生命周期；
 - 然后在本机 Python 进程中启动 `voxkeep`；
-- 退出时默认会 `stop funasr`（可通过环境变量关闭）。
+- 退出时默认会 `stop funasr`（可通过环境变量关闭）；
+- 如果设置 `VOXKEEP_MANAGE_FUNASR=0`，则切换到 `external` 模式，只连接已运行的 ASR 服务。
 
 常用环境变量：
-- `VOXKEEP_FUNASR_IMAGE`：FunASR Docker 镜像（默认 `gpudokerasr`）。
+- `VOXKEEP_ASR_MANAGED_IMAGE`：托管 FunASR Docker 镜像。默认值为官方镜像 `registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13`。
 - `VOXKEEP_MANAGE_FUNASR=0`：不管理 ASR 容器，连接外部已运行的 FunASR。
-- `VOXKEEP_FUNASR_DOCKER_SERVICE`：compose 中的 ASR service 名称（默认 `funasr`）。
+- `VOXKEEP_ASR_EXTERNAL_HOST` / `VOXKEEP_ASR_EXTERNAL_PORT`：`external` 模式下连接的 ASR 服务地址。
+- `VOXKEEP_ASR_MANAGED_SERVICE_NAME`：compose 中的 ASR service 名称（默认 `funasr`）。
 - `VOXKEEP_FUNASR_STOP_ON_EXIT=0`：应用退出时不停止 ASR 容器。
+- `VOXKEEP_FUNASR_IMAGE`：旧变量兼容别名，建议迁移到 `VOXKEEP_ASR_MANAGED_IMAGE`。
+
+注意：
+- 默认托管镜像是官方 CPU 版，首次运行通常需要从阿里云镜像仓库拉取。
+- 如果你的环境无法访问该仓库，或者你依赖本地 GPU 镜像，请显式设置 `VOXKEEP_ASR_MANAGED_IMAGE` 指向可用镜像。
+- `VOXKEEP_MANAGE_FUNASR=0` 代表外部服务模式；此时不要再把 `VOXKEEP_ASR_MODE` / `VOXKEEP_ASR_BACKEND` 设为 `managed` / `funasr_ws_managed`。
 
 等价命令：
 
@@ -142,15 +150,24 @@ uv run --python 3.11 python -m voxkeep run --config config/config.yaml
 仅启动 Docker ASR 服务（本机运行 VoxKeep）：
 
 ```bash
-VOXKEEP_FUNASR_IMAGE=gpudokerasr docker compose up -d funasr
+VOXKEEP_ASR_MANAGED_IMAGE=registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13 docker compose up -d funasr
 make run
 ```
 
 全容器运行（ASR + VoxKeep）：
 
 ```bash
-VOXKEEP_FUNASR_IMAGE=gpudokerasr docker compose up -d funasr voxkeep
+VOXKEEP_ASR_MANAGED_IMAGE=registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13 docker compose up -d funasr voxkeep
 ```
+
+部署建议：
+- 默认优先使用 `managed` 模式做单机开发，镜像和端口来源可复现。
+- 如果 FunASR 已作为独立服务长期运行，使用 `VOXKEEP_MANAGE_FUNASR=0` 和 `VOXKEEP_ASR_EXTERNAL_HOST/PORT` 连接外部实例。
+- 保留源码版 FunASR 仅作为排障或迁移兜底，不再作为默认部署路径。
+
+清理建议：
+- 运行时容器可直接通过 `docker compose stop funasr` 或 `docker compose rm -f funasr` 清理。
+- 模型、源码和旧镜像应分开处理；源码目录在新托管链路跑通前不建议立即删除。
 
 完整 wake/vad + ONNX + 注入链路运行：
 

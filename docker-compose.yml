@@ -1,10 +1,10 @@
 services:
   funasr:
-    image: ${VOXKEEP_FUNASR_IMAGE:-gpudokerasr}
+    image: ${VOXKEEP_ASR_MANAGED_IMAGE:-registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13}
     container_name: ${VOXKEEP_FUNASR_CONTAINER:-voxkeep-funasr}
     restart: unless-stopped
     ports:
-      - "${VOXKEEP_FUNASR_EXPOSE_PORT:-10096}:10096"
+      - "${VOXKEEP_ASR_MANAGED_EXPOSE_PORT:-10096}:10096"
 
   voxkeep:
     build: .
@@ -24,7 +24,9 @@ services:
       - XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-x11}
       - DISPLAY=${DISPLAY:-:0}
       - YDOTOOL_SOCKET=/tmp/.ydotool_socket
-      - VOXKEEP_FUNASR_HOST=funasr
-      - VOXKEEP_FUNASR_PORT=10096
+      - VOXKEEP_ASR_MODE=external
+      - VOXKEEP_ASR_BACKEND=funasr_ws_external
+      - VOXKEEP_ASR_EXTERNAL_HOST=funasr
+      - VOXKEEP_ASR_EXTERNAL_PORT=10096
       - VOXKEEP_MANAGE_FUNASR=0
     command: ["/bin/sh", "-lc", "if [ -e /dev/uinput ]; then ydotoold --socket-path /tmp/.ydotool_socket & fi; uv run python -m voxkeep --config config/config.yaml"]
