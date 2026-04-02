@@ -10,6 +10,13 @@ import subprocess
 import sys
 from typing import Sequence
 
+from voxkeep.shared.asr_assets import read_assets_state
+from voxkeep.shared.asr_backends import BUILTIN_BACKENDS, resolve_backend_definition
+from voxkeep.shared.asr_health import (
+    classify_backend_health,
+    normalize_asset_status,
+    probe_websocket_handshake,
+)
 from voxkeep.shared.config import load_config
 from voxkeep.shared.logging_setup import configure_logging
 from voxkeep.bootstrap.runtime_app import AppRuntime
@@ -21,7 +28,6 @@ EXIT_OK = 0
 EXIT_COMMAND_FAILURE = 1
 EXIT_RUNTIME_FAILURE = 2
 _ROOT_HELP_FLAGS = {"-h", "--help"}
-_SUBCOMMANDS = {"run", "doctor", "check", "config"}
 _PYTHON_MODULE_TOOLS = {"pytest", "pyright", "ruff"}
 
 
@@ -30,7 +36,7 @@ def normalize_cli_argv(argv: Sequence[str] | None) -> list[str]:
     normalized = list(sys.argv[1:] if argv is None else argv)
     if not normalized:
         return ["run"]
-    if normalized[0] in _SUBCOMMANDS or normalized[0] in _ROOT_HELP_FLAGS:
+    if normalized[0] in _ROOT_HELP_FLAGS or not normalized[0].startswith("-"):
         return normalized
     return ["run", *normalized]
 
@@ -61,6 +67,39 @@ def _dev_command(*args: str) -> list[str]:
 def _run_repo_command(command: list[str]) -> int:
     completed = subprocess.run(command, check=False, cwd=_project_root())
     return completed.returncode
+
+
+def _print_key_values(items: list[tuple[str, object]]) -> None:
+    for key, value in items:
+        print(f"{key}={value}")
+
+
+def _asset_status_from_state(state: object, backend_id: str) -> str:
+    if not isinstance(state, dict):
+        return "invalid"
+
+    entry = state.get(backend_id)
+    if entry is None:
+        return "missing"
+
+    if isinstance(entry, dict):
+        raw_status = entry.get("status")
+        if raw_status is not None:
+            try:
+                return normalize_asset_status(str(raw_status))
+            except ValueError:
+                return "invalid"
+
+        if "installed" in entry:
+            return "ok" if bool(entry["installed"]) else "missing"
+
+    if isinstance(entry, str):
+        try:
+            return normalize_asset_status(entry)
+        except ValueError:
+            return "invalid"
+
+    return "invalid"
 
 
 def _run_runtime(cfg_path: str) -> int:
@@ -113,6 +152,78 @@ def _cmd_config_validate(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_backend_list(_args: argparse.Namespace) -> int:
+    for backend in BUILTIN_BACKENDS.values():
+        print(
+            "\t".join(
+                [
+                    backend.backend_id,
+                    backend.display_name,
+                    backend.kind,
+                    backend.transport,
+                    f"managed_by_default={str(backend.managed_by_default).lower()}",
+                ]
+            )
+        )
+    return EXIT_OK
+
+
+def _cmd_backend_current(args: argparse.Namespace) -> int:
+    cfg = load_config(args.config)
+    backend = resolve_backend_definition(cfg.asr_backend)
+    _print_key_values(
+        [
+            ("backend_id", backend.backend_id),
+            ("display_name", backend.display_name),
+            ("kind", backend.kind),
+            ("transport", backend.transport),
+            ("managed_by_default", str(backend.managed_by_default).lower()),
+        ]
+    )
+    return EXIT_OK
+
+
+def _cmd_backend_doctor(args: argparse.Namespace) -> int:
+    cfg = load_config(args.config)
+    backend = resolve_backend_definition(cfg.asr_backend)
+    if backend.transport != "websocket":
+        raise ValueError(f"unsupported transport for backend doctor: {backend.transport}")
+
+    assets_state = read_assets_state()
+    assets_status = _asset_status_from_state(assets_state, backend.backend_id)
+    tcp_ok, handshake_ok, detail = (False, None, f"assets_status={assets_status}")
+    if assets_status == "ok":
+        tcp_ok, handshake_ok, detail = probe_websocket_handshake(cfg.asr_ws_url)
+
+    status = classify_backend_health(
+        tcp_ok=tcp_ok,
+        handshake_ok=handshake_ok,
+        assets_status=assets_status,
+        detail=detail,
+    )
+    _print_key_values(
+        [
+            ("backend_id", backend.backend_id),
+            ("state", status.state),
+            ("reason", status.reason),
+            ("detail", status.detail),
+        ]
+    )
+    return EXIT_OK if status.state == "healthy" else EXIT_COMMAND_FAILURE
+
+
+def _cmd_asset_status(args: argparse.Namespace) -> int:
+    assets_state = read_assets_state()
+    status = _asset_status_from_state(assets_state, args.backend_id)
+    _print_key_values(
+        [
+            ("backend_id", args.backend_id),
+            ("status", status),
+        ]
+    )
+    return EXIT_OK if status == "ok" else EXIT_COMMAND_FAILURE
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build CLI argument parser."""
     parser = argparse.ArgumentParser(description="Local ASR wake capture injector")
@@ -159,6 +270,49 @@ def build_arg_parser() -> argparse.ArgumentParser:
         description="Validate the YAML config file",
     )
     validate_parser.set_defaults(func=_cmd_config_validate)
+
+    backend_parser = subparsers.add_parser(
+        "backend",
+        help="ASR backend helpers",
+        description="ASR backend helpers",
+    )
+    backend_subparsers = backend_parser.add_subparsers(dest="backend_command", required=True)
+    backend_list_parser = backend_subparsers.add_parser(
+        "list",
+        help="List built-in ASR backends",
+        description="List built-in ASR backends",
+    )
+    backend_list_parser.set_defaults(func=_cmd_backend_list)
+
+    backend_current_parser = backend_subparsers.add_parser(
+        "current",
+        parents=[common],
+        help="Show the configured ASR backend",
+        description="Show the configured ASR backend",
+    )
+    backend_current_parser.set_defaults(func=_cmd_backend_current)
+
+    backend_doctor_parser = backend_subparsers.add_parser(
+        "doctor",
+        parents=[common],
+        help="Check the configured ASR backend",
+        description="Check the configured ASR backend",
+    )
+    backend_doctor_parser.set_defaults(func=_cmd_backend_doctor)
+
+    asset_parser = subparsers.add_parser(
+        "asset",
+        help="ASR backend asset helpers",
+        description="ASR backend asset helpers",
+    )
+    asset_subparsers = asset_parser.add_subparsers(dest="asset_command", required=True)
+    asset_status_parser = asset_subparsers.add_parser(
+        "status",
+        help="Show installed asset status for a backend",
+        description="Show installed asset status for a backend",
+    )
+    asset_status_parser.add_argument("backend_id", help="Backend id to inspect")
+    asset_status_parser.set_defaults(func=_cmd_asset_status)
 
     return parser
 
