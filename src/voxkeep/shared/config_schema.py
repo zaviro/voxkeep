@@ -160,11 +160,14 @@ class AppConfig:
 
     @property
     def asr_ws_url(self) -> str:
-        """Return websocket endpoint URL assembled from FunASR settings."""
+        """Return websocket endpoint URL assembled from the active ASR backend."""
+        backend = resolve_backend_definition(self.asr_backend)
+        if backend.kind == "managed_service":
+            return f"ws://127.0.0.1:{self.asr_managed_expose_port}{self.asr_external_path}"
+        host = self.asr_external_host
+        port = self.asr_external_port
         schema = "wss" if self.asr_external_use_ssl else "ws"
-        return (
-            f"{schema}://{self.asr_external_host}:{self.asr_external_port}{self.asr_external_path}"
-        )
+        return f"{schema}://{host}:{port}{self.asr_external_path}"
 
     @property
     def enabled_wake_rules(self) -> tuple[WakeRuleConfig, ...]:

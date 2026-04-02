@@ -217,6 +217,20 @@ def test_asr_ws_url_tracks_new_asr_external_fields(app_config: AppConfig) -> Non
     assert cfg.funasr_use_ssl is True
 
 
+def test_asr_ws_url_uses_managed_backend_endpoint(app_config: AppConfig) -> None:
+    cfg = replace(
+        app_config,
+        asr_backend="funasr_ws_managed",
+        asr_external_host="10.0.0.9",
+        asr_external_port=20000,
+        asr_external_path="/socket",
+        asr_external_use_ssl=True,
+        asr_managed_expose_port=18080,
+    )
+
+    assert cfg.asr_ws_url == "ws://127.0.0.1:18080/socket"
+
+
 def test_asr_backend_and_mode_are_canonicalized(app_config: AppConfig) -> None:
     cfg = replace(
         app_config,
