@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from dataclasses import replace
 
 import pytest
 
@@ -49,6 +50,18 @@ def app_config() -> AppConfig:
         openclaw_command=("openclaw", "agent", "--message", "{text}"),
         openclaw_timeout_s=20.0,
         log_level="INFO",
+    )
+
+
+@pytest.fixture
+def qwen_app_config(app_config: AppConfig) -> AppConfig:
+    return replace(
+        app_config,
+        asr_backend="qwen_vllm",
+        asr_external_port=8000,
+        asr_external_path="/v1/audio/transcriptions",
+        asr_runtime_reconnect_initial_s=1.5,
+        asr_runtime_reconnect_max_s=12.0,
     )
 
 

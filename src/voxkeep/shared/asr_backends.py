@@ -23,6 +23,12 @@ BUILTIN_BACKENDS: dict[str, AsrBackendDefinition] = {
         kind="external_service",
         transport="websocket",
     ),
+    "qwen_vllm": AsrBackendDefinition(
+        backend_id="qwen_vllm",
+        display_name="Qwen3-ASR vLLM External",
+        kind="external_service",
+        transport="streaming_http",
+    ),
     "funasr_ws_managed": AsrBackendDefinition(
         backend_id="funasr_ws_managed",
         display_name="FunASR WebSocket Managed",

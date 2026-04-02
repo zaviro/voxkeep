@@ -22,6 +22,8 @@ ENV_MAP = {
     "VOXKEEP_ASR_EXTERNAL_PORT": ("asr.external.port", int),
     "VOXKEEP_ASR_EXTERNAL_PATH": ("asr.external.path", str),
     "VOXKEEP_ASR_EXTERNAL_USE_SSL": ("asr.external.use_ssl", _parse_bool),
+    "VOXKEEP_ASR_RUNTIME_RECONNECT_INITIAL_S": ("asr.runtime.reconnect_initial_s", float),
+    "VOXKEEP_ASR_RUNTIME_RECONNECT_MAX_S": ("asr.runtime.reconnect_max_s", float),
     "VOXKEEP_ASR_MANAGED_PROVIDER": ("asr.managed.provider", str),
     "VOXKEEP_ASR_MANAGED_IMAGE": ("asr.managed.image", str),
     "VOXKEEP_ASR_MANAGED_SERVICE_NAME": ("asr.managed.service_name", str),

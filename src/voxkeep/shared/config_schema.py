@@ -8,6 +8,7 @@ from voxkeep.shared.asr_backends import resolve_backend_definition
 
 
 _DEFAULT_ASR_EXTERNAL = ("127.0.0.1", 10096, "/", False)
+_DEFAULT_ASR_RECONNECT = (1.0, 30.0)
 
 
 @dataclass(slots=True, frozen=True)
@@ -49,6 +50,8 @@ class AppConfig:
     openclaw_command: tuple[str, ...]
     openclaw_timeout_s: float
     log_level: str
+    asr_runtime_reconnect_initial_s: float = 1.0
+    asr_runtime_reconnect_max_s: float = 30.0
     asr_backend: str = "funasr_ws_external"
     asr_mode: str = "auto"
     asr_external_host: str = "127.0.0.1"
@@ -68,6 +71,12 @@ class AppConfig:
         compare=False,
     )
     _asr_source: str = field(default="legacy", repr=False, compare=False)
+    _reconnect_snapshot: tuple[float, float] = field(
+        default=_DEFAULT_ASR_RECONNECT,
+        repr=False,
+        compare=False,
+    )
+    _reconnect_source: str = field(default="legacy", repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate configuration values after dataclass construction."""
@@ -83,8 +92,11 @@ class AppConfig:
         _require_positive_int("vad_silence_ms", self.vad_silence_ms)
         _require_positive_float("asr_reconnect_initial_s", self.asr_reconnect_initial_s)
         _require_positive_float("asr_reconnect_max_s", self.asr_reconnect_max_s)
-        if self.asr_reconnect_max_s < self.asr_reconnect_initial_s:
-            raise ValueError("asr_reconnect_max_s must be >= asr_reconnect_initial_s")
+        _require_positive_float(
+            "asr_runtime_reconnect_initial_s",
+            self.asr_runtime_reconnect_initial_s,
+        )
+        _require_positive_float("asr_runtime_reconnect_max_s", self.asr_runtime_reconnect_max_s)
         backend = self.asr_backend.strip().lower()
         object.__setattr__(self, "asr_backend", backend)
         resolve_backend_definition(backend)
@@ -124,6 +136,37 @@ class AppConfig:
             ),
         )
         object.__setattr__(self, "_asr_source", source)
+        reconnect_source = _resolve_reconnect_source(
+            snapshot=self._reconnect_snapshot,
+            legacy=(self.asr_reconnect_initial_s, self.asr_reconnect_max_s),
+            runtime=(
+                self.asr_runtime_reconnect_initial_s,
+                self.asr_runtime_reconnect_max_s,
+            ),
+            current_source=self._reconnect_source,
+        )
+        if reconnect_source == "runtime":
+            object.__setattr__(
+                self, "asr_reconnect_initial_s", self.asr_runtime_reconnect_initial_s
+            )
+            object.__setattr__(self, "asr_reconnect_max_s", self.asr_runtime_reconnect_max_s)
+        else:
+            object.__setattr__(
+                self, "asr_runtime_reconnect_initial_s", self.asr_reconnect_initial_s
+            )
+            object.__setattr__(self, "asr_runtime_reconnect_max_s", self.asr_reconnect_max_s)
+        object.__setattr__(
+            self,
+            "_reconnect_snapshot",
+            (self.asr_reconnect_initial_s, self.asr_reconnect_max_s),
+        )
+        object.__setattr__(self, "_reconnect_source", reconnect_source)
+        if self.asr_reconnect_max_s < self.asr_reconnect_initial_s:
+            raise ValueError("asr_reconnect_max_s must be >= asr_reconnect_initial_s")
+        if self.asr_runtime_reconnect_max_s < self.asr_runtime_reconnect_initial_s:
+            raise ValueError(
+                "asr_runtime_reconnect_max_s must be >= asr_runtime_reconnect_initial_s"
+            )
         path_name = "asr_external_path" if source == "external" else "funasr_path"
         port_name = "asr_external_port" if source == "external" else "funasr_port"
         if not self.asr_external_path.startswith("/"):
@@ -228,6 +271,31 @@ def _resolve_asr_source(
     if external == _DEFAULT_ASR_EXTERNAL and legacy != _DEFAULT_ASR_EXTERNAL:
         return "legacy"
     return current_source if current_source in {"legacy", "external"} else "external"
+
+
+def _resolve_reconnect_source(
+    *,
+    snapshot: tuple[float, float],
+    legacy: tuple[float, float],
+    runtime: tuple[float, float],
+    current_source: str,
+) -> str:
+    """Pick the authoritative reconnect-policy side for the current object state."""
+    if runtime != snapshot and legacy == snapshot:
+        return "runtime"
+    if legacy != snapshot and runtime == snapshot:
+        return "legacy"
+    if runtime != snapshot and legacy != snapshot:
+        if runtime == legacy:
+            return current_source if current_source in {"legacy", "runtime"} else "runtime"
+        return "runtime"
+    if runtime == legacy:
+        return current_source if current_source in {"legacy", "runtime"} else "legacy"
+    if legacy == _DEFAULT_ASR_RECONNECT and runtime != _DEFAULT_ASR_RECONNECT:
+        return "runtime"
+    if runtime == _DEFAULT_ASR_RECONNECT and legacy != _DEFAULT_ASR_RECONNECT:
+        return "legacy"
+    return current_source if current_source in {"legacy", "runtime"} else "runtime"
 
 
 __all__ = ["AppConfig", "WakeRuleConfig"]

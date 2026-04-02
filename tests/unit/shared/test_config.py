@@ -85,6 +85,10 @@ def test_load_config_maps_legacy_funasr_fields_to_asr_backend(tmp_path) -> None:
     assert cfg.funasr_port == 10096
     assert cfg.funasr_path == "/socket"
     assert cfg.funasr_use_ssl is True
+    assert cfg.asr_reconnect_initial_s == 1.5
+    assert cfg.asr_reconnect_max_s == 12.0
+    assert cfg.asr_runtime_reconnect_initial_s == 1.5
+    assert cfg.asr_runtime_reconnect_max_s == 12.0
 
 
 def test_load_config_applies_new_asr_env_overrides(tmp_path, monkeypatch) -> None:
@@ -104,6 +108,57 @@ def test_load_config_applies_new_asr_env_overrides(tmp_path, monkeypatch) -> Non
     assert cfg.asr_external_host == "10.0.0.7"
     assert cfg.asr_external_port == 11096
     assert cfg.asr_managed_image == "example.com/funasr:1"
+
+
+def test_load_config_supports_qwen_backend_and_runtime_reconnect_settings(tmp_path) -> None:
+    cfg_file = tmp_path / "qwen.yaml"
+    cfg_file.write_text(
+        "asr:\n"
+        "  backend: qwen_vllm\n"
+        "  mode: external\n"
+        "  external:\n"
+        "    host: 127.0.0.1\n"
+        "    port: 8000\n"
+        "    path: /v1/audio/transcriptions\n"
+        "    use_ssl: false\n"
+        "  runtime:\n"
+        "    reconnect_initial_s: 2.5\n"
+        "    reconnect_max_s: 9.0\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(cfg_file)
+
+    assert cfg.asr_backend == "qwen_vllm"
+    assert cfg.asr_external_port == 8000
+    assert cfg.asr_reconnect_initial_s == 2.5
+    assert cfg.asr_reconnect_max_s == 9.0
+    assert cfg.asr_runtime_reconnect_initial_s == 2.5
+    assert cfg.asr_runtime_reconnect_max_s == 9.0
+
+
+def test_load_config_applies_runtime_reconnect_env_overrides(tmp_path, monkeypatch) -> None:
+    cfg_file = tmp_path / "reconnect-env.yaml"
+    cfg_file.write_text(
+        "funasr:\n"
+        "  reconnect_initial_s: 1.5\n"
+        "  reconnect_max_s: 12.0\n"
+        "asr:\n"
+        "  runtime:\n"
+        "    reconnect_initial_s: 2.5\n"
+        "    reconnect_max_s: 9.0\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("VOXKEEP_ASR_RUNTIME_RECONNECT_INITIAL_S", "3.25")
+    monkeypatch.setenv("VOXKEEP_ASR_RUNTIME_RECONNECT_MAX_S", "11.5")
+
+    cfg = load_config(cfg_file)
+
+    assert cfg.asr_reconnect_initial_s == 3.25
+    assert cfg.asr_reconnect_max_s == 11.5
+    assert cfg.asr_runtime_reconnect_initial_s == 3.25
+    assert cfg.asr_runtime_reconnect_max_s == 11.5
 
 
 def test_app_config_is_frozen(app_config: AppConfig):
@@ -240,6 +295,13 @@ def test_asr_backend_and_mode_are_canonicalized(app_config: AppConfig) -> None:
 
     assert cfg.asr_backend == "funasr_ws_managed"
     assert cfg.asr_mode == "managed"
+
+
+def test_qwen_app_config_fixture_supports_qwen_backend(qwen_app_config: AppConfig) -> None:
+    assert qwen_app_config.asr_backend == "qwen_vllm"
+    assert qwen_app_config.asr_external_port == 8000
+    assert qwen_app_config.asr_runtime_reconnect_initial_s == 1.5
+    assert qwen_app_config.asr_runtime_reconnect_max_s == 12.0
 
 
 def test_config_split_modules_reexport_public_api() -> None:

@@ -3,6 +3,19 @@ channels: 1
 frame_ms: 32
 max_queue_size: 512
 
+asr:
+  backend: funasr_ws_external
+  mode: auto
+  external:
+    host: 127.0.0.1
+    port: 10096
+    path: /
+    use_ssl: false
+  runtime:
+    reconnect_initial_s: 1.0
+    reconnect_max_s: 30.0
+
+# Legacy FunASR settings are kept for compatibility with older tooling.
 funasr:
   host: 127.0.0.1
   port: 10096

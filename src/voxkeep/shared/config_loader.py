@@ -125,11 +125,31 @@ def load_config(path: str | Path) -> AppConfig:
     runtime = merged.get("runtime", {})
     funasr = merged.get("funasr", {})
     asr = merged.get("asr", {})
+    user_asr = user_conf.get("asr", {})
     external = asr.get("external", {})
+    user_runtime_asr = user_asr.get("runtime", {}) if isinstance(user_asr, dict) else {}
+    if not isinstance(user_runtime_asr, dict):
+        user_runtime_asr = {}
     managed = asr.get("managed", {})
 
     openclaw = actions.get("openclaw_agent", {})
     command = tuple(str(part) for part in openclaw.get("command", []))
+
+    runtime_reconnect_env_present = any(
+        os.environ.get(env_name) is not None
+        for env_name in (
+            "VOXKEEP_ASR_RUNTIME_RECONNECT_INITIAL_S",
+            "VOXKEEP_ASR_RUNTIME_RECONNECT_MAX_S",
+        )
+    )
+    reconnect_source = asr.get("runtime", {}) if runtime_reconnect_env_present else user_runtime_asr
+    if not isinstance(reconnect_source, dict):
+        reconnect_source = {}
+
+    reconnect_initial_s = float(
+        reconnect_source.get("reconnect_initial_s", funasr["reconnect_initial_s"])
+    )
+    reconnect_max_s = float(reconnect_source.get("reconnect_max_s", funasr["reconnect_max_s"]))
 
     return AppConfig(
         sample_rate=int(merged["sample_rate"]),
@@ -140,14 +160,16 @@ def load_config(path: str | Path) -> AppConfig:
         funasr_port=int(external["port"]),
         funasr_path=str(external["path"]),
         funasr_use_ssl=bool(external["use_ssl"]),
-        asr_reconnect_initial_s=float(funasr["reconnect_initial_s"]),
-        asr_reconnect_max_s=float(funasr["reconnect_max_s"]),
+        asr_reconnect_initial_s=reconnect_initial_s,
+        asr_reconnect_max_s=reconnect_max_s,
         asr_backend=str(asr["backend"]),
         asr_mode=str(asr["mode"]),
         asr_external_host=str(external["host"]),
         asr_external_port=int(external["port"]),
         asr_external_path=str(external["path"]),
         asr_external_use_ssl=bool(external["use_ssl"]),
+        asr_runtime_reconnect_initial_s=reconnect_initial_s,
+        asr_runtime_reconnect_max_s=reconnect_max_s,
         asr_managed_provider=str(managed["provider"]),
         asr_managed_image=str(managed["image"]),
         asr_managed_service_name=str(managed["service_name"]),
