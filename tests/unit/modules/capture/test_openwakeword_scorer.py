@@ -68,8 +68,10 @@ def test_try_create_falls_back_to_null_scorer_on_init_error(monkeypatch):
 
 
 def test_try_create_falls_back_to_null_scorer_on_import_error(monkeypatch):
-    monkeypatch.delitem(sys.modules, "openwakeword", raising=False)
-    monkeypatch.delitem(sys.modules, "openwakeword.model", raising=False)
+    monkeypatch.setattr(
+        "voxkeep.modules.capture.infrastructure.openwakeword_worker.import_module",
+        lambda name: (_ for _ in ()).throw(ModuleNotFoundError(name)),
+    )
 
     scorer = OpenWakeWordScorer.try_create()
 

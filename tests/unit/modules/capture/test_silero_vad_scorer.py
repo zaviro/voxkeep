@@ -30,8 +30,10 @@ def test_energy_vad_scorer_scales_energy_and_caps_at_one() -> None:
 
 
 def test_silero_vad_try_create_falls_back_when_import_fails(monkeypatch) -> None:
-    monkeypatch.delitem(sys.modules, "torch", raising=False)
-    monkeypatch.delitem(sys.modules, "silero_vad", raising=False)
+    monkeypatch.setattr(
+        "voxkeep.modules.capture.infrastructure.silero_worker.import_module",
+        lambda name: (_ for _ in ()).throw(ModuleNotFoundError(name)),
+    )
 
     scorer = SileroVadScorer.try_create()
 
