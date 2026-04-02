@@ -11,8 +11,7 @@ from voxkeep.modules.transcription.application.transcription_service import (
     to_processed_frame,
     to_transcript_finalized,
 )
-from voxkeep.modules.transcription.application.backend_events import to_asr_final_event
-from voxkeep.modules.transcription.contracts import TranscriptionEngine, TranscriptionFinalEvent
+from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent, TranscriptionEngine
 from voxkeep.modules.transcription.infrastructure.asr_worker import AsrWorker as LegacyAsrWorker
 from voxkeep.modules.transcription.infrastructure.engine_factory import build_asr_engine
 from voxkeep.shared.config import AppConfig
@@ -75,8 +74,10 @@ class WorkerTranscriptionModule:
         self._fanout_thread: threading.Thread | None = None
 
         self._engine: TranscriptionEngine = build_asr_engine(cfg=cfg, stop_event=stop_event)
-        self._backend_final_queue: queue.Queue[TranscriptionFinalEvent] = self._engine.final_queue
-        self._final_in_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+        self._backend_final_queue: queue.Queue[TranscriptionBackendEvent] = self._engine.final_queue
+        self._final_in_queue: queue.Queue[TranscriptionBackendEvent] = queue.Queue(
+            maxsize=cfg.max_queue_size
+        )
         self._worker = LegacyAsrWorker(
             in_queue=self._in_queue,
             final_in_queue=self._final_in_queue,
@@ -152,7 +153,7 @@ class WorkerTranscriptionModule:
                 continue
             put_nowait_or_drop(
                 self._final_in_queue,
-                to_asr_final_event(event),
+                event,
                 logger=logger,
                 warning=f"transcription backend queue full; dropping segment_id={event.segment_id}",
             )

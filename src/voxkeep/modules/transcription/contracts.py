@@ -13,8 +13,8 @@ class TranscriptionEngine(Protocol):
     """Structural contract for transcription backends."""
 
     @property
-    def final_queue(self) -> queue.Queue[TranscriptionFinalEvent]:
-        """Queue that receives finalized transcript events."""
+    def final_queue(self) -> queue.Queue[TranscriptionBackendEvent]:
+        """Queue that receives backend transcript events."""
         raise NotImplementedError
 
     def start(self) -> None:
@@ -34,8 +34,8 @@ class TranscriptionEngine(Protocol):
         raise NotImplementedError
 
 
-class TranscriptionFinalEvent(Protocol):
-    """Backend-neutral structural shape for finalized transcript events."""
+class TranscriptionBackendEvent(Protocol):
+    """Structural shape for backend transcript events before worker normalization."""
 
     segment_id: str
     text: str
@@ -44,4 +44,4 @@ class TranscriptionFinalEvent(Protocol):
     is_final: bool
 
 
-__all__ = ["TranscriptFinalized", "TranscriptionEngine", "TranscriptionFinalEvent"]
+__all__ = ["TranscriptFinalized", "TranscriptionBackendEvent", "TranscriptionEngine"]

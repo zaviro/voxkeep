@@ -7,7 +7,9 @@ import logging
 import queue
 import threading
 
+from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent
 from voxkeep.shared.interfaces import ASREngine
+from voxkeep.modules.transcription.application.transcription_service import to_asr_final_event
 from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 
@@ -23,7 +25,7 @@ class AsrWorker:
     def __init__(
         self,
         in_queue: queue.Queue[ProcessedFrame],
-        final_in_queue: queue.Queue[AsrFinalEvent],
+        final_in_queue: queue.Queue[TranscriptionBackendEvent],
         out_queue: queue.Queue[AsrFinalEvent],
         capture_queue: queue.Queue[AsrFinalEvent],
         storage_queue: queue.Queue[StorageRecord],
@@ -91,15 +93,16 @@ class AsrWorker:
             except queue.Empty:
                 return
 
-            self._fanout_event(event)
-            if self._store_final_only and not event.is_final:
+            normalized_event = to_asr_final_event(event)
+            if not normalized_event.is_final:
                 continue
+            self._fanout_event(normalized_event)
             record = StorageRecord(
                 source="stream",
-                text=event.text,
-                start_ts=event.start_ts,
-                end_ts=event.end_ts,
-                is_final=event.is_final,
+                text=normalized_event.text,
+                start_ts=normalized_event.start_ts,
+                end_ts=normalized_event.end_ts,
+                is_final=normalized_event.is_final,
                 created_at=datetime.now(tz=timezone.utc).isoformat(),
             )
             self._put_maybe_drop(self._storage_queue, record, "storage")
