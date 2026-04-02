@@ -348,7 +348,7 @@ def test_build_asr_engine_exposes_backend_dispatch_registry() -> None:
     builders = getattr(engine_factory, "BACKEND_ENGINE_BUILDERS", None)
 
     assert builders is not None
-    assert set(builders) >= {"funasr_ws_external", "funasr_ws_managed"}
+    assert set(builders) >= {"funasr_ws_external", "funasr_ws_managed", "qwen_vllm"}
 
 
 def test_build_asr_engine_uses_backend_specific_constructor(
@@ -357,11 +357,15 @@ def test_build_asr_engine_uses_backend_specific_constructor(
     engine_factory = import_module("voxkeep.modules.transcription.infrastructure.engine_factory")
     sentinel_external = object()
     sentinel_managed = object()
+    sentinel_qwen = object()
     monkeypatch.setitem(
         engine_factory.BACKEND_ENGINE_BUILDERS, "funasr_ws_external", lambda **_: sentinel_external
     )
     monkeypatch.setitem(
         engine_factory.BACKEND_ENGINE_BUILDERS, "funasr_ws_managed", lambda **_: sentinel_managed
+    )
+    monkeypatch.setitem(
+        engine_factory.BACKEND_ENGINE_BUILDERS, "qwen_vllm", lambda **_: sentinel_qwen
     )
 
     external = engine_factory.build_asr_engine(
@@ -372,9 +376,34 @@ def test_build_asr_engine_uses_backend_specific_constructor(
         cfg=replace(app_config, asr_backend="funasr_ws_managed"),
         stop_event=threading.Event(),
     )
+    qwen = engine_factory.build_asr_engine(
+        cfg=replace(app_config, asr_backend="qwen_vllm"),
+        stop_event=threading.Event(),
+    )
 
     assert external is sentinel_external
     assert managed is sentinel_managed
+    assert qwen is sentinel_qwen
+
+
+def test_build_transcription_module_supports_qwen_backend(
+    monkeypatch, app_config: AppConfig
+) -> None:
+    fake_engine = _FakeEngine()
+    cfg = replace(app_config, asr_backend="qwen_vllm")
+    monkeypatch.setattr(
+        "voxkeep.modules.transcription.public.build_asr_engine",
+        lambda cfg, stop_event: fake_engine,
+    )
+
+    module = build_transcription_module(
+        capture_queue=queue.Queue(),
+        storage_queue=queue.Queue(),
+        stop_event=threading.Event(),
+        cfg=cfg,
+    )
+
+    assert module is not None
 
 
 def test_transcription_engine_contract_exposes_join_method() -> None:
