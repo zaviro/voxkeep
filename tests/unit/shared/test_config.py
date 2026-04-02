@@ -44,11 +44,66 @@ def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):
     assert cfg.pre_roll_ms == 1500
     assert cfg.funasr_host == "127.0.0.1"
     assert cfg.funasr_port == 10096
+    assert cfg.asr_backend == "funasr_ws_external"
+    assert cfg.asr_mode == "auto"
+    assert cfg.asr_external_host == "127.0.0.1"
+    assert cfg.asr_external_port == 10096
+    assert cfg.asr_external_path == "/"
+    assert cfg.asr_external_use_ssl is False
+    assert cfg.asr_managed_image == (
+        "registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13"
+    )
     assert [rule.keyword for rule in cfg.enabled_wake_rules] == ["alexa", "hey_jarvis"]
     assert cfg.enabled_wake_rules[1].threshold == 0.6
     assert cfg.enabled_wake_rules[1].action == "openclaw_agent"
     assert cfg.openclaw_command == ("openclaw", "agent", "--message", "{text}")
     assert cfg.openclaw_timeout_s == 21.0
+
+
+def test_load_config_maps_legacy_funasr_fields_to_asr_backend(tmp_path) -> None:
+    cfg_file = tmp_path / "legacy.yaml"
+    cfg_file.write_text(
+        "funasr:\n"
+        "  host: 127.0.0.1\n"
+        "  port: 10096\n"
+        "  path: /socket\n"
+        "  use_ssl: true\n"
+        "  reconnect_initial_s: 1.5\n"
+        "  reconnect_max_s: 12.0\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(cfg_file)
+
+    assert cfg.asr_backend == "funasr_ws_external"
+    assert cfg.asr_mode == "auto"
+    assert cfg.asr_external_host == "127.0.0.1"
+    assert cfg.asr_external_port == 10096
+    assert cfg.asr_external_path == "/socket"
+    assert cfg.asr_external_use_ssl is True
+    assert cfg.funasr_host == "127.0.0.1"
+    assert cfg.funasr_port == 10096
+    assert cfg.funasr_path == "/socket"
+    assert cfg.funasr_use_ssl is True
+
+
+def test_load_config_applies_new_asr_env_overrides(tmp_path, monkeypatch) -> None:
+    cfg_file = tmp_path / "env.yaml"
+    cfg_file.write_text("{}\n", encoding="utf-8")
+
+    monkeypatch.setenv("VOXKEEP_ASR_BACKEND", "funasr_ws_managed")
+    monkeypatch.setenv("VOXKEEP_ASR_MODE", "managed")
+    monkeypatch.setenv("VOXKEEP_ASR_EXTERNAL_HOST", "10.0.0.7")
+    monkeypatch.setenv("VOXKEEP_ASR_EXTERNAL_PORT", "11096")
+    monkeypatch.setenv("VOXKEEP_ASR_MANAGED_IMAGE", "example.com/funasr:1")
+
+    cfg = load_config(cfg_file)
+
+    assert cfg.asr_backend == "funasr_ws_managed"
+    assert cfg.asr_mode == "managed"
+    assert cfg.asr_external_host == "10.0.0.7"
+    assert cfg.asr_external_port == 11096
+    assert cfg.asr_managed_image == "example.com/funasr:1"
 
 
 def test_app_config_is_frozen(app_config: AppConfig):
@@ -144,6 +199,33 @@ def test_frame_samples_property_is_derived_correctly(app_config: AppConfig) -> N
 def test_asr_ws_url_uses_ws_or_wss_based_on_ssl(app_config: AppConfig) -> None:
     assert replace(app_config, funasr_use_ssl=False).asr_ws_url == "ws://127.0.0.1:10096/"
     assert replace(app_config, funasr_use_ssl=True).asr_ws_url == "wss://127.0.0.1:10096/"
+
+
+def test_asr_ws_url_tracks_new_asr_external_fields(app_config: AppConfig) -> None:
+    cfg = replace(
+        app_config,
+        asr_external_host="10.0.0.9",
+        asr_external_port=20000,
+        asr_external_path="/socket",
+        asr_external_use_ssl=True,
+    )
+
+    assert cfg.asr_ws_url == "wss://10.0.0.9:20000/socket"
+    assert cfg.funasr_host == "10.0.0.9"
+    assert cfg.funasr_port == 20000
+    assert cfg.funasr_path == "/socket"
+    assert cfg.funasr_use_ssl is True
+
+
+def test_asr_backend_and_mode_are_canonicalized(app_config: AppConfig) -> None:
+    cfg = replace(
+        app_config,
+        asr_backend="  FUNASR_WS_MANAGED  ",
+        asr_mode="  MANAGED  ",
+    )
+
+    assert cfg.asr_backend == "funasr_ws_managed"
+    assert cfg.asr_mode == "managed"
 
 
 def test_config_split_modules_reexport_public_api() -> None:

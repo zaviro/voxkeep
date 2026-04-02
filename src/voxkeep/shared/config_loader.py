@@ -44,6 +44,15 @@ def _set_nested(conf: dict[str, Any], dotted: str, value: Any) -> None:
     cur[keys[-1]] = value
 
 
+def _get_nested(conf: dict[str, Any], dotted: str) -> Any:
+    cur: Any = conf
+    for key in dotted.split("."):
+        if not isinstance(cur, dict) or key not in cur:
+            return None
+        cur = cur[key]
+    return cur
+
+
 def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"config file not found: {path}")
@@ -59,6 +68,27 @@ def _apply_env(conf: dict[str, Any]) -> dict[str, Any]:
         if raw is None:
             continue
         _set_nested(conf, dotted, caster(raw))
+    return conf
+
+
+def _apply_legacy_funasr_mapping(
+    conf: dict[str, Any],
+    source: dict[str, Any],
+) -> dict[str, Any]:
+    legacy = source.get("funasr")
+    if not isinstance(legacy, dict):
+        return conf
+
+    conf.setdefault("asr", {}).setdefault("external", {})
+    field_map = {
+        "host": "asr.external.host",
+        "port": "asr.external.port",
+        "path": "asr.external.path",
+        "use_ssl": "asr.external.use_ssl",
+    }
+    for legacy_key, dotted in field_map.items():
+        if _get_nested(source, dotted) is None and legacy_key in legacy:
+            _set_nested(conf, dotted, legacy[legacy_key])
     return conf
 
 
@@ -80,8 +110,10 @@ def _parse_wake_rules(data: list[dict[str, Any]]) -> tuple[WakeRuleConfig, ...]:
 
 def load_config(path: str | Path) -> AppConfig:
     """Load config from YAML file and environment variables."""
+    user_conf = _load_yaml(Path(path))
     merged = _deep_copy_dict(DEFAULTS)
-    merged = _deep_merge(merged, _load_yaml(Path(path)))
+    merged = _deep_merge(merged, user_conf)
+    merged = _apply_legacy_funasr_mapping(merged, user_conf)
     merged = _apply_env(merged)
 
     wake = merged.get("wake", {})
@@ -92,6 +124,9 @@ def load_config(path: str | Path) -> AppConfig:
     actions = merged.get("actions", {})
     runtime = merged.get("runtime", {})
     funasr = merged.get("funasr", {})
+    asr = merged.get("asr", {})
+    external = asr.get("external", {})
+    managed = asr.get("managed", {})
 
     openclaw = actions.get("openclaw_agent", {})
     command = tuple(str(part) for part in openclaw.get("command", []))
@@ -101,12 +136,23 @@ def load_config(path: str | Path) -> AppConfig:
         channels=int(merged["channels"]),
         frame_ms=int(merged["frame_ms"]),
         max_queue_size=int(merged["max_queue_size"]),
-        funasr_host=str(funasr["host"]),
-        funasr_port=int(funasr["port"]),
-        funasr_path=str(funasr["path"]),
-        funasr_use_ssl=bool(funasr["use_ssl"]),
+        funasr_host=str(external["host"]),
+        funasr_port=int(external["port"]),
+        funasr_path=str(external["path"]),
+        funasr_use_ssl=bool(external["use_ssl"]),
         asr_reconnect_initial_s=float(funasr["reconnect_initial_s"]),
         asr_reconnect_max_s=float(funasr["reconnect_max_s"]),
+        asr_backend=str(asr["backend"]),
+        asr_mode=str(asr["mode"]),
+        asr_external_host=str(external["host"]),
+        asr_external_port=int(external["port"]),
+        asr_external_path=str(external["path"]),
+        asr_external_use_ssl=bool(external["use_ssl"]),
+        asr_managed_provider=str(managed["provider"]),
+        asr_managed_image=str(managed["image"]),
+        asr_managed_service_name=str(managed["service_name"]),
+        asr_managed_expose_port=int(managed["expose_port"]),
+        asr_managed_models_dir=str(managed["models_dir"]),
         wake_threshold=float(wake["threshold"]),
         wake_rules=_parse_wake_rules(list(wake.get("rules", []))),
         vad_speech_threshold=float(vad["speech_threshold"]),

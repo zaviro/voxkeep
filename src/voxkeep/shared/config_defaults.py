@@ -8,6 +8,24 @@ DEFAULTS = {
     "channels": 1,
     "frame_ms": 32,
     "max_queue_size": 512,
+    "asr": {
+        "backend": "funasr_ws_external",
+        "mode": "auto",
+        "external": {
+            "host": "127.0.0.1",
+            "port": 10096,
+            "path": "/",
+            "use_ssl": False,
+        },
+        "managed": {
+            "provider": "docker",
+            "image": "registry.cn-hangzhou.aliyuncs.com/"
+            "funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13",
+            "service_name": "funasr",
+            "expose_port": 10096,
+            "models_dir": "~/.local/share/voxkeep/models/funasr",
+        },
+    },
     "funasr": {
         "host": "127.0.0.1",
         "port": 10096,

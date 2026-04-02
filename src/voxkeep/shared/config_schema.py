@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from voxkeep.shared.asr_backends import resolve_backend_definition
+
+
+_DEFAULT_ASR_EXTERNAL = ("127.0.0.1", 10096, "/", False)
 
 
 @dataclass(slots=True, frozen=True)
@@ -44,6 +49,25 @@ class AppConfig:
     openclaw_command: tuple[str, ...]
     openclaw_timeout_s: float
     log_level: str
+    asr_backend: str = "funasr_ws_external"
+    asr_mode: str = "auto"
+    asr_external_host: str = "127.0.0.1"
+    asr_external_port: int = 10096
+    asr_external_path: str = "/"
+    asr_external_use_ssl: bool = False
+    asr_managed_provider: str = "docker"
+    asr_managed_image: str = (
+        "registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13"
+    )
+    asr_managed_service_name: str = "funasr"
+    asr_managed_expose_port: int = 10096
+    asr_managed_models_dir: str = "~/.local/share/voxkeep/models/funasr"
+    _asr_snapshot: tuple[str, int, str, bool] = field(
+        default=_DEFAULT_ASR_EXTERNAL,
+        repr=False,
+        compare=False,
+    )
+    _asr_source: str = field(default="legacy", repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate configuration values after dataclass construction."""
@@ -61,6 +85,59 @@ class AppConfig:
         _require_positive_float("asr_reconnect_max_s", self.asr_reconnect_max_s)
         if self.asr_reconnect_max_s < self.asr_reconnect_initial_s:
             raise ValueError("asr_reconnect_max_s must be >= asr_reconnect_initial_s")
+        backend = self.asr_backend.strip().lower()
+        object.__setattr__(self, "asr_backend", backend)
+        resolve_backend_definition(backend)
+        asr_mode = self.asr_mode.strip().lower()
+        object.__setattr__(self, "asr_mode", asr_mode)
+        if asr_mode not in {"auto", "external", "managed"}:
+            raise ValueError("asr_mode must be one of: auto, external, managed")
+        source = _resolve_asr_source(
+            snapshot=self._asr_snapshot,
+            legacy=(self.funasr_host, self.funasr_port, self.funasr_path, self.funasr_use_ssl),
+            external=(
+                self.asr_external_host,
+                self.asr_external_port,
+                self.asr_external_path,
+                self.asr_external_use_ssl,
+            ),
+            current_source=self._asr_source,
+        )
+        if source == "external":
+            object.__setattr__(self, "funasr_host", self.asr_external_host)
+            object.__setattr__(self, "funasr_port", self.asr_external_port)
+            object.__setattr__(self, "funasr_path", self.asr_external_path)
+            object.__setattr__(self, "funasr_use_ssl", self.asr_external_use_ssl)
+        else:
+            object.__setattr__(self, "asr_external_host", self.funasr_host)
+            object.__setattr__(self, "asr_external_port", self.funasr_port)
+            object.__setattr__(self, "asr_external_path", self.funasr_path)
+            object.__setattr__(self, "asr_external_use_ssl", self.funasr_use_ssl)
+        object.__setattr__(
+            self,
+            "_asr_snapshot",
+            (
+                self.asr_external_host,
+                self.asr_external_port,
+                self.asr_external_path,
+                self.asr_external_use_ssl,
+            ),
+        )
+        object.__setattr__(self, "_asr_source", source)
+        path_name = "asr_external_path" if source == "external" else "funasr_path"
+        port_name = "asr_external_port" if source == "external" else "funasr_port"
+        if not self.asr_external_path.startswith("/"):
+            raise ValueError(f"{path_name} must start with '/'")
+        _require_positive_int(port_name, self.asr_external_port)
+        if not self.asr_managed_provider.strip():
+            raise ValueError("asr_managed_provider must not be empty")
+        if not self.asr_managed_image.strip():
+            raise ValueError("asr_managed_image must not be empty")
+        if not self.asr_managed_service_name.strip():
+            raise ValueError("asr_managed_service_name must not be empty")
+        _require_positive_int("asr_managed_expose_port", self.asr_managed_expose_port)
+        if not self.asr_managed_models_dir.strip():
+            raise ValueError("asr_managed_models_dir must not be empty")
         if not self.funasr_path.startswith("/"):
             raise ValueError("funasr_path must start with '/'")
         backend = self.injector_backend.strip().lower()
@@ -84,8 +161,10 @@ class AppConfig:
     @property
     def asr_ws_url(self) -> str:
         """Return websocket endpoint URL assembled from FunASR settings."""
-        schema = "wss" if self.funasr_use_ssl else "ws"
-        return f"{schema}://{self.funasr_host}:{self.funasr_port}{self.funasr_path}"
+        schema = "wss" if self.asr_external_use_ssl else "ws"
+        return (
+            f"{schema}://{self.asr_external_host}:{self.asr_external_port}{self.asr_external_path}"
+        )
 
     @property
     def enabled_wake_rules(self) -> tuple[WakeRuleConfig, ...]:
@@ -125,6 +204,27 @@ def _validate_wake_rules(rules: tuple[WakeRuleConfig, ...]) -> None:
         _require_probability("wake_rules.threshold", rule.threshold)
         if not rule.action.strip():
             raise ValueError(f"wake_rules[{keyword}] action must not be empty")
+
+
+def _resolve_asr_source(
+    *,
+    snapshot: tuple[str, int, str, bool],
+    legacy: tuple[str, int, str, bool],
+    external: tuple[str, int, str, bool],
+    current_source: str,
+) -> str:
+    """Pick the authoritative ASR side for the current object state."""
+    if external != snapshot and legacy == snapshot:
+        return "external"
+    if legacy != snapshot and external == snapshot:
+        return "legacy"
+    if external == legacy:
+        return current_source if current_source in {"legacy", "external"} else "legacy"
+    if legacy == _DEFAULT_ASR_EXTERNAL and external != _DEFAULT_ASR_EXTERNAL:
+        return "external"
+    if external == _DEFAULT_ASR_EXTERNAL and legacy != _DEFAULT_ASR_EXTERNAL:
+        return "legacy"
+    return current_source if current_source in {"legacy", "external"} else "external"
 
 
 __all__ = ["AppConfig", "WakeRuleConfig"]
