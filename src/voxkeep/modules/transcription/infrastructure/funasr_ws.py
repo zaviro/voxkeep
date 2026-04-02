@@ -11,9 +11,10 @@ import time
 from typing import Any
 import uuid
 
+from voxkeep.modules.transcription.application.backend_events import BackendTranscriptEvent
 from voxkeep.shared.interfaces import ASREngine
 from voxkeep.shared.config import AppConfig
-from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame
+from voxkeep.shared.events import ProcessedFrame
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
@@ -30,11 +31,13 @@ class FunAsrWsEngine(ASREngine):
         self._cfg = cfg
         self._stop_event = stop_event
         self._in_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-        self._final_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+        self._final_queue: queue.Queue[BackendTranscriptEvent] = queue.Queue(
+            maxsize=cfg.max_queue_size
+        )
         self._thread: threading.Thread | None = None
 
     @property
-    def final_queue(self) -> queue.Queue[AsrFinalEvent]:
+    def final_queue(self) -> queue.Queue[BackendTranscriptEvent]:
         """Return queue receiving finalized transcript events."""
         return self._final_queue
 
@@ -145,12 +148,12 @@ class FunAsrWsEngine(ASREngine):
             end_ts = float(payload.get("end") or payload.get("end_time") or now)
             segment_id = str(payload.get("segment_id") or payload.get("sid") or uuid.uuid4())
 
-            event = AsrFinalEvent(
+            event = BackendTranscriptEvent(
                 segment_id=segment_id,
                 text=text,
                 start_ts=start_ts,
                 end_ts=end_ts,
-                is_final=True,
+                event_type="final",
             )
             put_nowait_or_drop(
                 self._final_queue,

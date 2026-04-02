@@ -7,15 +7,17 @@ import queue
 import threading
 from typing import Callable, Protocol
 
-from voxkeep.shared.config import AppConfig
-from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
-from voxkeep.shared.queue_utils import put_nowait_or_drop
 from voxkeep.modules.transcription.application.transcription_service import (
     to_processed_frame,
     to_transcript_finalized,
 )
+from voxkeep.modules.transcription.application.backend_events import to_asr_final_event
+from voxkeep.modules.transcription.contracts import TranscriptionEngine, TranscriptionFinalEvent
 from voxkeep.modules.transcription.infrastructure.asr_worker import AsrWorker as LegacyAsrWorker
-from voxkeep.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
+from voxkeep.modules.transcription.infrastructure.engine_factory import build_asr_engine
+from voxkeep.shared.config import AppConfig
+from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
+from voxkeep.shared.queue_utils import put_nowait_or_drop
 from voxkeep.shared.types import AudioFrame, TranscriptFinalized
 
 logger = logging.getLogger(__name__)
@@ -69,10 +71,12 @@ class WorkerTranscriptionModule:
         self._public_out_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
         self._stop_event = stop_event
         self._handlers: list[Callable[[TranscriptFinalized], None]] = []
+        self._backend_bridge_thread: threading.Thread | None = None
         self._fanout_thread: threading.Thread | None = None
 
-        self._engine = FunAsrWsEngine(cfg=cfg, stop_event=stop_event)
-        self._final_in_queue = self._engine.final_queue
+        self._engine: TranscriptionEngine = build_asr_engine(cfg=cfg, stop_event=stop_event)
+        self._backend_final_queue: queue.Queue[TranscriptionFinalEvent] = self._engine.final_queue
+        self._final_in_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
         self._worker = LegacyAsrWorker(
             in_queue=self._in_queue,
             final_in_queue=self._final_in_queue,
@@ -85,7 +89,14 @@ class WorkerTranscriptionModule:
         )
 
     def start(self) -> None:
-        """Start the underlying worker and fanout bridge."""
+        """Start the backend bridge, underlying worker, and fanout bridge."""
+        if self._backend_bridge_thread is None:
+            self._backend_bridge_thread = threading.Thread(
+                target=self._backend_bridge_loop,
+                name="transcription_backend_bridge",
+                daemon=True,
+            )
+            self._backend_bridge_thread.start()
         if self._fanout_thread is None:
             self._fanout_thread = threading.Thread(
                 target=self._fanout_loop,
@@ -118,13 +129,33 @@ class WorkerTranscriptionModule:
     def join(self, timeout: float | None = None) -> None:
         """Join worker and fanout resources."""
         self._worker.join(timeout=timeout)
+        if self._backend_bridge_thread is not None:
+            self._backend_bridge_thread.join(timeout=timeout)
         if self._fanout_thread is not None:
             self._fanout_thread.join(timeout=timeout)
 
     def is_alive(self) -> bool:
         """Report whether worker and fanout resources are alive."""
+        bridge_alive = (
+            self._backend_bridge_thread is not None and self._backend_bridge_thread.is_alive()
+        )
         fanout_alive = self._fanout_thread is not None and self._fanout_thread.is_alive()
-        return self._worker.is_alive() or fanout_alive
+        return self._worker.is_alive() or bridge_alive or fanout_alive
+
+    def _backend_bridge_loop(self) -> None:
+        while not self._stop_event.is_set() or not self._backend_final_queue.empty():
+            try:
+                event = self._backend_final_queue.get(timeout=_QUEUE_GET_TIMEOUT_S)
+            except queue.Empty:
+                continue
+            if not event.is_final:
+                continue
+            put_nowait_or_drop(
+                self._final_in_queue,
+                to_asr_final_event(event),
+                logger=logger,
+                warning=f"transcription backend queue full; dropping segment_id={event.segment_id}",
+            )
 
     def _fanout_loop(self) -> None:
         while not self._stop_event.is_set() or not self._public_out_queue.empty():
