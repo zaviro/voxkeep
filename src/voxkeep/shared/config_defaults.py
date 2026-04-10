@@ -21,6 +21,12 @@ DEFAULTS = {
             "reconnect_initial_s": 1.0,
             "reconnect_max_s": 30.0,
         },
+        "qwen": {
+            "model": "Qwen/Qwen3-ASR-1.7B",
+            "realtime": True,
+            "gpu_memory_utilization": 0.65,
+            "max_model_len": 32768,
+        },
         "managed": {
             "provider": "docker",
             "image": "registry.cn-hangzhou.aliyuncs.com/"

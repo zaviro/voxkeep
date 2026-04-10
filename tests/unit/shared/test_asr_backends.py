@@ -14,4 +14,4 @@ def test_builtin_registry_contains_qwen_vllm() -> None:
     backend = resolve_backend_definition("qwen_vllm")
 
     assert backend.kind == "external_service"
-    assert backend.transport == "streaming_http"
+    assert backend.transport == "websocket"

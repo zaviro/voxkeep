@@ -59,7 +59,7 @@ def qwen_app_config(app_config: AppConfig) -> AppConfig:
         app_config,
         asr_backend="qwen_vllm",
         asr_external_port=8000,
-        asr_external_path="/v1/audio/transcriptions",
+        asr_external_path="/v1/realtime",
         asr_runtime_reconnect_initial_s=1.5,
         asr_runtime_reconnect_max_s=12.0,
     )

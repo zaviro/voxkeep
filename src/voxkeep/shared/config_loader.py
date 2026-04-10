@@ -130,6 +130,7 @@ def load_config(path: str | Path) -> AppConfig:
     user_runtime_asr = user_asr.get("runtime", {}) if isinstance(user_asr, dict) else {}
     if not isinstance(user_runtime_asr, dict):
         user_runtime_asr = {}
+    qwen = asr.get("qwen", {})
     managed = asr.get("managed", {})
 
     openclaw = actions.get("openclaw_agent", {})
@@ -170,6 +171,10 @@ def load_config(path: str | Path) -> AppConfig:
         asr_external_use_ssl=bool(external["use_ssl"]),
         asr_runtime_reconnect_initial_s=reconnect_initial_s,
         asr_runtime_reconnect_max_s=reconnect_max_s,
+        asr_qwen_model=str(qwen["model"]),
+        asr_qwen_realtime=bool(qwen["realtime"]),
+        asr_qwen_gpu_memory_utilization=float(qwen["gpu_memory_utilization"]),
+        asr_qwen_max_model_len=int(qwen["max_model_len"]),
         asr_managed_provider=str(managed["provider"]),
         asr_managed_image=str(managed["image"]),
         asr_managed_service_name=str(managed["service_name"]),

@@ -50,6 +50,10 @@ def test_load_config_from_yaml_and_env(tmp_path, monkeypatch):
     assert cfg.asr_external_port == 10096
     assert cfg.asr_external_path == "/"
     assert cfg.asr_external_use_ssl is False
+    assert cfg.asr_qwen_model == "Qwen/Qwen3-ASR-1.7B"
+    assert cfg.asr_qwen_realtime is True
+    assert cfg.asr_qwen_gpu_memory_utilization == 0.65
+    assert cfg.asr_qwen_max_model_len == 32768
     assert cfg.asr_managed_image == (
         "registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13"
     )
@@ -119,7 +123,7 @@ def test_load_config_supports_qwen_backend_and_runtime_reconnect_settings(tmp_pa
         "  external:\n"
         "    host: 127.0.0.1\n"
         "    port: 8000\n"
-        "    path: /v1/audio/transcriptions\n"
+        "    path: /v1/realtime\n"
         "    use_ssl: false\n"
         "  runtime:\n"
         "    reconnect_initial_s: 2.5\n"
@@ -131,10 +135,44 @@ def test_load_config_supports_qwen_backend_and_runtime_reconnect_settings(tmp_pa
 
     assert cfg.asr_backend == "qwen_vllm"
     assert cfg.asr_external_port == 8000
+    assert cfg.asr_external_path == "/v1/realtime"
     assert cfg.asr_reconnect_initial_s == 2.5
     assert cfg.asr_reconnect_max_s == 9.0
     assert cfg.asr_runtime_reconnect_initial_s == 2.5
     assert cfg.asr_runtime_reconnect_max_s == 9.0
+
+
+def test_load_config_supports_qwen_model_and_realtime_settings(tmp_path) -> None:
+    cfg_file = tmp_path / "qwen-options.yaml"
+    cfg_file.write_text(
+        "asr:\n"
+        "  backend: qwen_vllm\n"
+        "  qwen:\n"
+        "    model: Qwen/Qwen3-ASR-1.7B\n"
+        "    realtime: true\n"
+        "    gpu_memory_utilization: 0.65\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(cfg_file)
+
+    assert cfg.asr_qwen_model == "Qwen/Qwen3-ASR-1.7B"
+    assert cfg.asr_qwen_realtime is True
+    assert cfg.asr_qwen_gpu_memory_utilization == 0.65
+    assert cfg.asr_qwen_max_model_len == 32768
+
+
+def test_load_config_supports_qwen_max_model_len_setting(tmp_path) -> None:
+    cfg_file = tmp_path / "qwen-max-len.yaml"
+    cfg_file.write_text(
+        "asr:\n  qwen:\n    max_model_len: 24576\n",
+        encoding="utf-8",
+    )
+
+    cfg = load_config(cfg_file)
+
+    assert cfg.asr_qwen_model == "Qwen/Qwen3-ASR-1.7B"
+    assert cfg.asr_qwen_max_model_len == 24576
 
 
 def test_load_config_applies_runtime_reconnect_env_overrides(tmp_path, monkeypatch) -> None:
@@ -300,6 +338,7 @@ def test_asr_backend_and_mode_are_canonicalized(app_config: AppConfig) -> None:
 def test_qwen_app_config_fixture_supports_qwen_backend(qwen_app_config: AppConfig) -> None:
     assert qwen_app_config.asr_backend == "qwen_vllm"
     assert qwen_app_config.asr_external_port == 8000
+    assert qwen_app_config.asr_external_path == "/v1/realtime"
     assert qwen_app_config.asr_runtime_reconnect_initial_s == 1.5
     assert qwen_app_config.asr_runtime_reconnect_max_s == 12.0
 

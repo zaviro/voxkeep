@@ -58,6 +58,10 @@ class AppConfig:
     asr_external_port: int = 10096
     asr_external_path: str = "/"
     asr_external_use_ssl: bool = False
+    asr_qwen_model: str = "Qwen/Qwen3-ASR-1.7B"
+    asr_qwen_realtime: bool = True
+    asr_qwen_gpu_memory_utilization: float = 0.65
+    asr_qwen_max_model_len: int = 32768
     asr_managed_provider: str = "docker"
     asr_managed_image: str = (
         "registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13"
@@ -97,9 +101,16 @@ class AppConfig:
             self.asr_runtime_reconnect_initial_s,
         )
         _require_positive_float("asr_runtime_reconnect_max_s", self.asr_runtime_reconnect_max_s)
+        _require_probability(
+            "asr_qwen_gpu_memory_utilization",
+            self.asr_qwen_gpu_memory_utilization,
+        )
+        _require_positive_int("asr_qwen_max_model_len", self.asr_qwen_max_model_len)
         backend = self.asr_backend.strip().lower()
         object.__setattr__(self, "asr_backend", backend)
         resolve_backend_definition(backend)
+        if not self.asr_qwen_model.strip():
+            raise ValueError("asr_qwen_model must not be empty")
         asr_mode = self.asr_mode.strip().lower()
         object.__setattr__(self, "asr_mode", asr_mode)
         if asr_mode not in {"auto", "external", "managed"}:

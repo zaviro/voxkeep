@@ -24,6 +24,13 @@ ENV_MAP = {
     "VOXKEEP_ASR_EXTERNAL_USE_SSL": ("asr.external.use_ssl", _parse_bool),
     "VOXKEEP_ASR_RUNTIME_RECONNECT_INITIAL_S": ("asr.runtime.reconnect_initial_s", float),
     "VOXKEEP_ASR_RUNTIME_RECONNECT_MAX_S": ("asr.runtime.reconnect_max_s", float),
+    "VOXKEEP_ASR_QWEN_MODEL": ("asr.qwen.model", str),
+    "VOXKEEP_ASR_QWEN_REALTIME": ("asr.qwen.realtime", _parse_bool),
+    "VOXKEEP_ASR_QWEN_GPU_MEMORY_UTILIZATION": (
+        "asr.qwen.gpu_memory_utilization",
+        float,
+    ),
+    "VOXKEEP_ASR_QWEN_MAX_MODEL_LEN": ("asr.qwen.max_model_len", int),
     "VOXKEEP_ASR_MANAGED_PROVIDER": ("asr.managed.provider", str),
     "VOXKEEP_ASR_MANAGED_IMAGE": ("asr.managed.image", str),
     "VOXKEEP_ASR_MANAGED_SERVICE_NAME": ("asr.managed.service_name", str),
