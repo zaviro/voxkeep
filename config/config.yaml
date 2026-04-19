@@ -20,15 +20,6 @@ asr:
     gpu_memory_utilization: 0.65
     max_model_len: 32768
 
-# Legacy FunASR settings are kept for compatibility with older tooling.
-funasr:
-  host: 127.0.0.1
-  port: 10096
-  path: /
-  use_ssl: false
-  reconnect_initial_s: 1.0
-  reconnect_max_s: 30.0
-
 wake:
   threshold: 0.5
   rules:

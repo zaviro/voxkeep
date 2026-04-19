@@ -17,24 +17,11 @@ class AsrBackendDefinition:
 
 
 BUILTIN_BACKENDS: dict[str, AsrBackendDefinition] = {
-    "funasr_ws_external": AsrBackendDefinition(
-        backend_id="funasr_ws_external",
-        display_name="FunASR WebSocket External",
-        kind="external_service",
-        transport="websocket",
-    ),
     "qwen_vllm": AsrBackendDefinition(
         backend_id="qwen_vllm",
         display_name="Qwen3-ASR vLLM External",
         kind="external_service",
         transport="websocket",
-    ),
-    "funasr_ws_managed": AsrBackendDefinition(
-        backend_id="funasr_ws_managed",
-        display_name="FunASR WebSocket Managed",
-        kind="managed_service",
-        transport="websocket",
-        managed_by_default=True,
     ),
 }
 

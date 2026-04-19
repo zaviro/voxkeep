@@ -3,223 +3,144 @@
 [![CI](https://github.com/zaviro/voxkeep/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zaviro/voxkeep/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-本项目在 Ubuntu 24.04 上实现本地常驻语音链路：持续 ASR、唤醒后截取一句、并注入当前焦点输入框。
+`VoxKeep` 是一个面向 Linux 桌面的本地常驻语音链路：持续监听麦克风音频，检测唤醒词，用 VAD + ASR 截取一句完整语音，然后把最终文本注入当前焦点输入框，或分发到 `openclaw agent` 这类动作。
 
-## 5 分钟跑起来
+## 当前状态
 
-```bash
-make sync-ai
-make setup-ai-models
-make doctor
-make validate-config
-make run
-```
+- 运行时代码已经迁移到模块化单体结构：`src/voxkeep/modules/*`、`src/voxkeep/bootstrap/`、`src/voxkeep/shared/`。
+- 仓库内提交的 `config/config.yaml` 当前默认选择 `qwen_vllm` 外部服务，目标地址是 `ws://127.0.0.1:8000/v1/realtime`。
+- `VoxKeep` 不负责启动或停止 Qwen `vLLM` 服务；Qwen 服务应由仓库外部独立管理。
+- 如果你要严格按 `config/config.yaml` 内容运行，请直接使用 CLI 或 `make run`。
 
-对应的 CLI 入口：
+## 快速开始
 
-```bash
-python -m voxkeep doctor
-python -m voxkeep config validate --config config/config.yaml
-python -m voxkeep run --config config/config.yaml
-```
-
-说明：
-- `doctor` 检查音频、FunASR、wake/vad 依赖和注入工具是否就绪。
-- `config validate` 在启动前校验 YAML 配置与环境变量覆盖后的结果。
-- `run` 启动本地常驻链路；旧的 `python -m voxkeep --config ...` 调用方式仍然兼容。
-
-## 常用命令
+### 开发环境
 
 ```bash
+make sync
 make test-fast
-make test-integration
-make test-e2e
-make doctor
-make validate-config
-make run
-make cli-check
-make test
 make lint
 make typecheck
 ```
 
-等价 CLI：
+### 按当前 `qwen_vllm` 配置运行
+
+1. 在仓库外部先启动本地 Qwen `vLLM` ASR 服务。
+2. 准备运行时依赖和唤醒模型：
 
 ```bash
-python -m voxkeep doctor
-python -m voxkeep config validate --config config/config.yaml
-python -m voxkeep check
-python -m voxkeep run --config config/config.yaml
+make sync-ai
+make setup-ai-models
 ```
+
+3. 做环境和配置检查：
+
+```bash
+make doctor
+make validate-config
+uv run --python 3.11 python -m voxkeep backend current --config config/config.yaml
+uv run --python 3.11 python -m voxkeep backend doctor --config config/config.yaml
+```
+
+4. 直接运行 VoxKeep：
+
+```bash
+make run
+```
+
+说明：
+
+- `make doctor` 负责检查会话类型、音频源、wake/VAD 依赖、注入工具和当前配置对应的 WebSocket ASR 健康状态。
+- `backend current` 用来确认配置最终解析出的后端。
+- `backend doctor` 会输出当前后端的健康分类；如果资产状态缺失或服务不可用，会非零退出。
+
+## CLI 概览
+
+```bash
+uv run --python 3.11 python -m voxkeep --help
+```
+
+主要子命令：
+
+- `run`: 启动本地运行时。
+- `doctor`: 运行环境诊断脚本。
+- `check`: 顺序执行 `ruff check`、`pyright`、`pytest -q`。
+- `config validate --config <path>`: 校验配置文件和 `VOXKEEP_*` 环境变量覆盖后的结果。
+- `backend list`: 列出内建 ASR 后端。
+- `backend current --config <path>`: 显示当前配置解析后的 ASR 后端。
+- `backend doctor --config <path>`: 检查当前配置的 ASR 后端健康状态。
+- `asset status <backend_id>`: 查看某个后端的已安装资源状态；`backend doctor` 会依赖这份状态。
 
 ## 项目结构
 
 ```text
-src/
-  voxkeep/
-    __main__.py
-    core/
-    services/
-    api/
-    infra/
-    agents/
-    tools/
-    cli/
+src/voxkeep/
+  bootstrap/      # 顶层运行时装配与生命周期
+  modules/
+    capture/      # 唤醒词、VAD、句子截取状态机
+    transcription/ # ASR 后端适配与转写入口
+    injection/    # 文本注入与动作执行
+    storage/      # SQLite 持久化
+    runtime/      # 音频采集、预处理、audio bus
+  shared/         # 配置、事件、日志、队列工具
+  api/            # 外部 API 入口
+  cli/            # CLI 入口
 tests/
   unit/
   integration/
   e2e/
+  architecture/
 ```
 
-## 环境与依赖（uv）
+`src/voxkeep/core/`、`src/voxkeep/infra/`、`src/voxkeep/services/` 仍存在，但属于退役命名空间；不要再向这些目录新增运行时代码。
 
-项目运行时锁定 Python 3.11。
+## 配置速览
 
-推荐把依赖分成两层理解：
+当前主要配置文件是 `config/config.yaml`。重点字段：
 
-- `make sync`：基础开发依赖。适合日常写代码、跑单测、跑架构测试、lint、格式化。
-- `make sync-ai`：在 `make sync` 之上额外安装 runtime-ai 依赖。适合调试真实 wake/VAD/runtime 链路，或需要本机完整 AI 环境时使用。
+- `asr.backend`: 当前仅支持 `qwen_vllm`。
+- `asr.mode`: `external`。
+- `asr.external.*`: 当前活动 WebSocket ASR 服务的地址。
+- `asr.runtime.*`: ASR 连接重试参数。
+- `asr.qwen.*`: Qwen `vLLM` 相关参数。
+- `wake.rules`: 唤醒词到动作的路由规则。
+- `injector.backend`: `auto`、`xdotool`、`ydotool`。
+- `actions.openclaw_agent`: `openclaw agent` 的命令模板和超时。
 
-runtime-ai 依赖当前包括：
-- `openwakeword`：唤醒词检测
-- `silero-vad`：语音活动检测
-- `torch`：`silero-vad` 的底层推理依赖
-
-1. 仅同步基础开发依赖（3.11）：
+## 常用命令
 
 ```bash
 make sync
-```
-
-2. 如果要调试真实 wake/vad/runtime 链路，再安装 runtime-ai 依赖（3.11）：
-
-```bash
 make sync-ai
-```
-
-3. 预下载并验证 openwakeword ONNX 模型资源：
-
-```bash
 make setup-ai-models
-```
-
-可选：通过环境变量切换唤醒模型（默认 `alexa`）：
-
-```bash
-VOXKEEP_WAKE_MODEL=hey_jarvis make setup-ai-models
-```
-
-## 运行
-
-推荐先执行：
-
-```bash
+make check-ai
 make doctor
 make validate-config
-```
-
-```bash
-make run
-```
-
-默认行为：
-- `scripts/run_local.sh` 默认按 `managed` 模式通过 `docker compose up -d funasr` 管理 FunASR 服务生命周期；
-- 然后在本机 Python 进程中启动 `voxkeep`；
-- 退出时默认会 `stop funasr`（可通过环境变量关闭）；
-- 如果设置 `VOXKEEP_MANAGE_FUNASR=0`，则切换到 `external` 模式，只连接已运行的 ASR 服务。
-
-常用环境变量：
-- `VOXKEEP_ASR_MANAGED_IMAGE`：托管 FunASR Docker 镜像。默认值为官方镜像 `registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13`。
-- `VOXKEEP_MANAGE_FUNASR=0`：不管理 ASR 容器，连接外部已运行的 FunASR。
-- `VOXKEEP_ASR_EXTERNAL_HOST` / `VOXKEEP_ASR_EXTERNAL_PORT`：`external` 模式下连接的 ASR 服务地址。
-- `VOXKEEP_ASR_MANAGED_SERVICE_NAME`：compose 中的 ASR service 名称（默认 `funasr`）。
-- `VOXKEEP_FUNASR_STOP_ON_EXIT=0`：应用退出时不停止 ASR 容器。
-- `VOXKEEP_FUNASR_IMAGE`：旧变量兼容别名，建议迁移到 `VOXKEEP_ASR_MANAGED_IMAGE`。
-
-注意：
-- 默认托管镜像是官方 CPU 版，首次运行通常需要从阿里云镜像仓库拉取。
-- 如果你的环境无法访问该仓库，或者你依赖本地 GPU 镜像，请显式设置 `VOXKEEP_ASR_MANAGED_IMAGE` 指向可用镜像。
-- `VOXKEEP_MANAGE_FUNASR=0` 代表外部服务模式；此时不要再把 `VOXKEEP_ASR_MODE` / `VOXKEEP_ASR_BACKEND` 设为 `managed` / `funasr_ws_managed`。
-
-等价命令：
-
-```bash
-uv run --python 3.11 python -m voxkeep run --config config/config.yaml
-```
-
-仅启动 Docker ASR 服务（本机运行 VoxKeep）：
-
-```bash
-VOXKEEP_ASR_MANAGED_IMAGE=registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13 docker compose up -d funasr
-make run
-```
-
-全容器运行（ASR + VoxKeep）：
-
-```bash
-VOXKEEP_ASR_MANAGED_IMAGE=registry.cn-hangzhou.aliyuncs.com/funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13 docker compose up -d funasr voxkeep
-```
-
-部署建议：
-- 默认优先使用 `managed` 模式做单机开发，镜像和端口来源可复现。
-- 如果 FunASR 已作为独立服务长期运行，使用 `VOXKEEP_MANAGE_FUNASR=0` 和 `VOXKEEP_ASR_EXTERNAL_HOST/PORT` 连接外部实例。
-- 保留源码版 FunASR 仅作为排障或迁移兜底，不再作为默认部署路径。
-
-清理建议：
-- 运行时容器可直接通过 `docker compose stop funasr` 或 `docker compose rm -f funasr` 清理。
-- 模型、源码和旧镜像应分开处理；源码目录在新托管链路跑通前不建议立即删除。
-
-完整 wake/vad + ONNX + 注入链路运行：
-
-```bash
-make run-ai
-```
-
-## 测试与质量检查
-
-```bash
+make cli-check
 make test-fast
+make test-unit
+make test-architecture
 make test-integration
 make test-e2e
-make cli-check
 make test
-make lint
-make typecheck
 make test-cov
+make lint
+make fmt
+make typecheck
 make precommit
 ```
 
-说明：
-- `make test-fast` 只跑 `tests/unit` 和 `tests/architecture`，适合高频本地开发循环。
-- `make test-integration` 跑 `tests/integration`，适合改动 worker、队列、生命周期、模块 wiring 时使用。
-- `make test-e2e` 跑 `tests/e2e`，适合做低频验收，不建议每次小改都跑。
-- `make cli-check` 顺序执行 `ruff check`、`pyright`、`pytest -q`，适合本地提交前快速自检。
-- `make typecheck` 通过 `pyright` 做静态类型检查；如果本地未安装 `runtime-ai` 依赖，`openwakeword` / `silero-vad` / `torch` 的导入可能报缺失。
-- `make test-cov` 输出终端覆盖率摘要并生成 `coverage.xml`。
+## 测试分层
 
-### 推荐运行频率
+- `tests/unit` + `tests/architecture`: 默认高频反馈回路，适合日常开发。
+- `tests/integration`: 改动 worker、生命周期、runtime wiring、模块协作时再跑。
+- `tests/e2e`: 低频验收；涉及真实外部服务、桌面注入、GPT-SoVITS 夹具或完整运行链路时使用。
 
-- 高频必跑：
-  - `make fmt`
-  - `make lint`
-  - `make test-fast`
-- 改动对应模块时追加：
-  - `make test-integration`
-- 低频验收或环境变更后再跑：
-  - `make test-e2e`
-  - `VOXKEEP_RUN_OPENCLAW_REAL=1 ...`
-  - `VOXKEEP_RUN_GPTSOVITS_E2E=1 ...`
+## GPT-SoVITS 夹具 E2E
 
-判断原则：
-- 不依赖外部服务、设备、模型、桌面会话的测试，优先归到高频。
-- 失败更像环境问题而非代码回归的测试，归到低频验收。
-- 真实 OpenClaw、真实 GPT-SoVITS、真实 runtime AI 链路，只在环境初始化、依赖升级或对应链路改动时跑。
-
-### GPT-SoVITS E2E 夹具规范
-
-- `tests/e2e/test_pipeline_tts_audio.py` 只读取固定夹具音频，不会在测试时调用 TTS。
-- 默认容器 API 可通过 `~/workspace/gptsovits/scripts/start_api_cuda.sh` 启动。
-- 首次或需要更新夹具时，执行：
+- `tests/e2e/test_pipeline_tts_audio.py` 只使用预生成音频夹具，不会在测试时调用 TTS。
+- 夹具目录：`tests/fixtures/audio/gptsovits/`
+- 重新生成夹具：
 
 ```bash
 .codex/skills/gptsovits-cli-tts/scripts/generate_test_fixtures.sh
@@ -237,42 +158,10 @@ VOXKEEP_RUN_GPTSOVITS_E2E=1 uv run --python 3.11 python -m pytest tests/e2e/test
 VOXKEEP_RUN_OPENCLAW_REAL=1 uv run --python 3.11 python -m pytest tests/integration/test_openclaw_real_call.py -q
 ```
 
-- 运行带真实 OpenClaw 的 GPT-SoVITS E2E：
-
-```bash
-VOXKEEP_RUN_GPTSOVITS_E2E=1 VOXKEEP_RUN_OPENCLAW_REAL=1 uv run --python 3.11 python -m pytest tests/e2e/test_pipeline_tts_audio.py -q
-```
-
-检查 runtime-ai 可用性：
-
-```bash
-make check-ai
-```
-
-## 运行前检查
-
-```bash
-make doctor
-```
-
-仍可直接运行底层脚本：
-
-```bash
-scripts/check_env.sh
-```
-
-首次启用 pre-commit：
-
-```bash
-uv run --python 3.11 pre-commit install
-```
-
 ## 说明
 
-- 唤醒词检测默认使用 openwakeword 的 ONNX 推理框架。
-- 默认唤醒模型为 `alexa`，可通过 `VOXKEEP_WAKE_MODEL` 覆盖。
-- 默认帧长 `frame_ms=32`（512 samples@16k），与 silero-vad 默认输入长度对齐。
-- 注入策略：X11 使用 `xdotool`，Wayland 使用 `ydotool`。
-- 数据落库：仅 `storage_worker` 写 SQLite。
-- 当前阶段不接入 LLM，不提供 GUI。
-- Docker 默认基于 Python 3.11，已包含 runtime-ai 依赖与注入工具。
+- 唤醒词检测使用 `openwakeword`，VAD 使用 `silero-vad`。
+- 默认采样率是 `16kHz`，默认帧长是 `32ms`。
+- 注入后端 `auto` 会按桌面会话自动选择：X11 用 `xdotool`，Wayland 用 `ydotool`。
+- SQLite 只允许由 storage 模块写入。
+- 当前阶段不提供 GUI，也不在运行时链路内直接接入通用 LLM。

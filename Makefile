@@ -10,7 +10,7 @@ setup-ai-models: sync-ai
 	uv run --python 3.11 python scripts/setup_openwakeword_models.py
 
 run-ai: setup-ai-models
-	./scripts/run_local.sh config/config.yaml
+	uv run --python 3.11 python -m voxkeep run --config config/config.yaml
 
 check-ai: setup-ai-models
 	uv run --python 3.11 python scripts/check_runtime_ai.py
@@ -49,7 +49,7 @@ typecheck:
 	uv run --python 3.11 pyright
 
 run:
-	./scripts/run_local.sh config/config.yaml
+	uv run --python 3.11 python -m voxkeep run --config config/config.yaml
 
 lint:
 	uv run --python 3.11 ruff check src tests scripts

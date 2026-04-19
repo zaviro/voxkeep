@@ -9,8 +9,8 @@ DEFAULTS = {
     "frame_ms": 32,
     "max_queue_size": 512,
     "asr": {
-        "backend": "funasr_ws_external",
-        "mode": "auto",
+        "backend": "qwen_vllm",
+        "mode": "external",
         "external": {
             "host": "127.0.0.1",
             "port": 10096,
@@ -27,22 +27,6 @@ DEFAULTS = {
             "gpu_memory_utilization": 0.65,
             "max_model_len": 32768,
         },
-        "managed": {
-            "provider": "docker",
-            "image": "registry.cn-hangzhou.aliyuncs.com/"
-            "funasr_repo/funasr:funasr-runtime-sdk-online-cpu-0.1.13",
-            "service_name": "funasr",
-            "expose_port": 10096,
-            "models_dir": "~/.local/share/voxkeep/models/funasr",
-        },
-    },
-    "funasr": {
-        "host": "127.0.0.1",
-        "port": 10096,
-        "path": "/",
-        "use_ssl": False,
-        "reconnect_initial_s": 1.0,
-        "reconnect_max_s": 30.0,
     },
     "wake": {
         "threshold": 0.5,

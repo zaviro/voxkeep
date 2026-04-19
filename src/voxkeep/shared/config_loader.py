@@ -71,27 +71,6 @@ def _apply_env(conf: dict[str, Any]) -> dict[str, Any]:
     return conf
 
 
-def _apply_legacy_funasr_mapping(
-    conf: dict[str, Any],
-    source: dict[str, Any],
-) -> dict[str, Any]:
-    legacy = source.get("funasr")
-    if not isinstance(legacy, dict):
-        return conf
-
-    conf.setdefault("asr", {}).setdefault("external", {})
-    field_map = {
-        "host": "asr.external.host",
-        "port": "asr.external.port",
-        "path": "asr.external.path",
-        "use_ssl": "asr.external.use_ssl",
-    }
-    for legacy_key, dotted in field_map.items():
-        if _get_nested(source, dotted) is None and legacy_key in legacy:
-            _set_nested(conf, dotted, legacy[legacy_key])
-    return conf
-
-
 def _parse_wake_rules(data: list[dict[str, Any]]) -> tuple[WakeRuleConfig, ...]:
     rules: list[WakeRuleConfig] = []
     for item in data:
@@ -113,7 +92,6 @@ def load_config(path: str | Path) -> AppConfig:
     user_conf = _load_yaml(Path(path))
     merged = _deep_copy_dict(DEFAULTS)
     merged = _deep_merge(merged, user_conf)
-    merged = _apply_legacy_funasr_mapping(merged, user_conf)
     merged = _apply_env(merged)
 
     wake = merged.get("wake", {})
@@ -123,44 +101,22 @@ def load_config(path: str | Path) -> AppConfig:
     injector = merged.get("injector", {})
     actions = merged.get("actions", {})
     runtime = merged.get("runtime", {})
-    funasr = merged.get("funasr", {})
     asr = merged.get("asr", {})
-    user_asr = user_conf.get("asr", {})
     external = asr.get("external", {})
-    user_runtime_asr = user_asr.get("runtime", {}) if isinstance(user_asr, dict) else {}
-    if not isinstance(user_runtime_asr, dict):
-        user_runtime_asr = {}
+    asr_runtime = asr.get("runtime", {})
     qwen = asr.get("qwen", {})
-    managed = asr.get("managed", {})
 
     openclaw = actions.get("openclaw_agent", {})
     command = tuple(str(part) for part in openclaw.get("command", []))
 
-    runtime_reconnect_env_present = any(
-        os.environ.get(env_name) is not None
-        for env_name in (
-            "VOXKEEP_ASR_RUNTIME_RECONNECT_INITIAL_S",
-            "VOXKEEP_ASR_RUNTIME_RECONNECT_MAX_S",
-        )
-    )
-    reconnect_source = asr.get("runtime", {}) if runtime_reconnect_env_present else user_runtime_asr
-    if not isinstance(reconnect_source, dict):
-        reconnect_source = {}
-
-    reconnect_initial_s = float(
-        reconnect_source.get("reconnect_initial_s", funasr["reconnect_initial_s"])
-    )
-    reconnect_max_s = float(reconnect_source.get("reconnect_max_s", funasr["reconnect_max_s"]))
+    reconnect_initial_s = float(asr_runtime.get("reconnect_initial_s", 1.0))
+    reconnect_max_s = float(asr_runtime.get("reconnect_max_s", 30.0))
 
     return AppConfig(
         sample_rate=int(merged["sample_rate"]),
         channels=int(merged["channels"]),
         frame_ms=int(merged["frame_ms"]),
         max_queue_size=int(merged["max_queue_size"]),
-        funasr_host=str(external["host"]),
-        funasr_port=int(external["port"]),
-        funasr_path=str(external["path"]),
-        funasr_use_ssl=bool(external["use_ssl"]),
         asr_reconnect_initial_s=reconnect_initial_s,
         asr_reconnect_max_s=reconnect_max_s,
         asr_backend=str(asr["backend"]),
@@ -175,11 +131,6 @@ def load_config(path: str | Path) -> AppConfig:
         asr_qwen_realtime=bool(qwen["realtime"]),
         asr_qwen_gpu_memory_utilization=float(qwen["gpu_memory_utilization"]),
         asr_qwen_max_model_len=int(qwen["max_model_len"]),
-        asr_managed_provider=str(managed["provider"]),
-        asr_managed_image=str(managed["image"]),
-        asr_managed_service_name=str(managed["service_name"]),
-        asr_managed_expose_port=int(managed["expose_port"]),
-        asr_managed_models_dir=str(managed["models_dir"]),
         wake_threshold=float(wake["threshold"]),
         wake_rules=_parse_wake_rules(list(wake.get("rules", []))),
         vad_speech_threshold=float(vad["speech_threshold"]),
