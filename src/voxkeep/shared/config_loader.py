@@ -143,6 +143,8 @@ def load_config(path: str | Path) -> AppConfig:
         qwen_realtime=bool(qwen["realtime"]),
         qwen_gpu_memory_utilization=float(qwen["gpu_memory_utilization"]),
         qwen_max_model_len=int(qwen["max_model_len"]),
+        max_queue_size=int(merged["max_queue_size"]),
+        sample_rate=int(merged["sample_rate"]),
     )
 
     capture_cfg = CaptureConfig(

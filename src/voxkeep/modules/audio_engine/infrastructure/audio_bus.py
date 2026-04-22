@@ -6,7 +6,7 @@ import logging
 import queue
 import threading
 
-from voxkeep.modules.runtime.infrastructure.preprocess import Preprocessor
+from voxkeep.modules.audio_engine.infrastructure.preprocess import Preprocessor
 from voxkeep.shared.events import ProcessedFrame, RawAudioChunk
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 

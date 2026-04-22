@@ -26,7 +26,7 @@ def test_factory_selects_backend(
     expected_type: type,
 ):
     monkeypatch.setenv("XDG_SESSION_TYPE", session_type)
-    cfg = replace(app_config, injector_backend=backend)
+    cfg = replace(app_config.injector, backend=backend)
 
     injector = build_injector(cfg)
 

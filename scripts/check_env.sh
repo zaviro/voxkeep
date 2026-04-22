@@ -87,7 +87,7 @@ else
 fi
 echo
 
-echo "== FunASR backend health =="
+echo "== ASR backend health =="
 if run_python - <<'PY'
 from __future__ import annotations
 
@@ -98,56 +98,31 @@ from voxkeep.shared.config import load_config
 
 
 cfg = load_config("config/config.yaml")
-backend = cfg.asr_backend
-detail = f"{backend} @ {cfg.asr_external_host}:{cfg.asr_external_port}"
-assets_status = "ok"
-assets_detail = ""
+backend = cfg.asr.backend
+detail = f"{backend} @ {cfg.asr.external_host}:{cfg.asr.external_port}"
 asset_note = ""
 try:
-    assets = read_assets_state()
+    read_assets_state()
 except ValueError as exc:
     asset_note = str(exc)
-    if backend == "funasr_ws_managed":
-        assets_status = "invalid"
-        assets_detail = str(exc)
-else:
-    if backend == "funasr_ws_managed":
-        backend_assets = assets.get(backend)
-        if backend_assets is None:
-            assets_status = "missing"
-            assets_detail = "managed backend assets missing"
-        elif not isinstance(backend_assets, dict):
-            assets_status = "invalid"
-            assets_detail = "managed backend assets invalid"
-        elif not bool(backend_assets.get("installed", False)):
-            assets_status = "missing"
-            assets_detail = "managed backend assets missing"
 
-if assets_status != "ok":
-    status = classify_backend_health(
-        tcp_ok=False,
-        handshake_ok=None,
-        assets_status=assets_status,
-        detail=assets_detail,
-    )
-else:
-    tcp_ok, handshake_ok, probe_detail = probe_websocket_handshake(cfg.asr_ws_url)
-    if asset_note:
-        probe_detail = f"{probe_detail}; assets warning: {asset_note}"
-    status = classify_backend_health(
-        tcp_ok=tcp_ok,
-        handshake_ok=handshake_ok,
-        assets_status="ok",
-        detail=probe_detail,
-    )
+tcp_ok, handshake_ok, probe_detail = probe_websocket_handshake(cfg.asr.ws_url)
+if asset_note:
+    probe_detail = f"{probe_detail}; assets warning: {asset_note}"
+status = classify_backend_health(
+    tcp_ok=tcp_ok,
+    handshake_ok=handshake_ok,
+    assets_status="ok",
+    detail=probe_detail,
+)
 
 print(f"{status.state} {status.reason} {status.detail}")
 raise SystemExit(0 if status.state == "healthy" else 1)
 PY
 then
-  mark_pass "FunASR backend health"
+  mark_pass "ASR backend health"
 else
-  mark_fail "FunASR backend health"
+  mark_fail "ASR backend health"
 fi
 echo
 

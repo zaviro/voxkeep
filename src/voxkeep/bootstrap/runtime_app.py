@@ -9,9 +9,9 @@ import time
 
 from voxkeep.modules.capture.public import build_capture_detection_workers, build_capture_module
 from voxkeep.modules.injection.public import build_injection_module
-from voxkeep.modules.runtime.infrastructure.audio_bus import AudioBus
-from voxkeep.modules.runtime.infrastructure.audio_capture import SoundDeviceAudioSource
-from voxkeep.modules.runtime.infrastructure.lifecycle import Worker, WorkerHandle
+from voxkeep.modules.audio_engine.infrastructure.audio_bus import AudioBus
+from voxkeep.modules.audio_engine.infrastructure.audio_capture import SoundDeviceAudioSource
+from voxkeep.modules.audio_engine.infrastructure.lifecycle import Worker, WorkerHandle
 from voxkeep.modules.storage.public import build_storage_module
 from voxkeep.modules.transcription.public import build_transcription_module
 from voxkeep.shared.config import AppConfig
@@ -40,22 +40,40 @@ class AppRuntime:
         self.stop_event = threading.Event()
         self._fatal_error: str | None = None
 
-        self.raw_queue: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.wake_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.vad_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.asr_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-
-        self.wake_event_queue: queue.Queue[WakeEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.vad_event_queue: queue.Queue[VadEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.capture_asr_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-        self.capture_cmd_queue: queue.Queue[CaptureCommand] = queue.Queue(
-            maxsize=cfg.max_queue_size
+        self.raw_queue: queue.Queue[RawAudioChunk] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.wake_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.vad_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.asr_audio_queue: queue.Queue[ProcessedFrame] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
         )
 
-        self.storage_queue: queue.Queue[StorageRecord] = queue.Queue(maxsize=cfg.max_queue_size)
+        self.wake_event_queue: queue.Queue[WakeEvent] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.vad_event_queue: queue.Queue[VadEvent] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.capture_asr_queue: queue.Queue[AsrFinalEvent] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+        self.capture_cmd_queue: queue.Queue[CaptureCommand] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
 
-        self.audio_source = SoundDeviceAudioSource(out_queue=self.raw_queue, cfg=cfg)
+        self.storage_queue: queue.Queue[StorageRecord] = queue.Queue(
+            maxsize=cfg.audio_engine.max_queue_size
+        )
+
+        self.audio_source = SoundDeviceAudioSource(out_queue=self.raw_queue, cfg=cfg.audio_engine)
         self.audio_bus = AudioBus(
             raw_queue=self.raw_queue,
             wake_queue=self.wake_audio_queue,
@@ -69,7 +87,7 @@ class AppRuntime:
             wake_out_queue=self.wake_event_queue,
             vad_out_queue=self.vad_event_queue,
             stop_event=self.stop_event,
-            cfg=cfg,
+            cfg=cfg.capture,
         )
 
         self.asr_worker = build_transcription_module(
@@ -77,7 +95,8 @@ class AppRuntime:
             capture_queue=self.capture_asr_queue,
             storage_queue=self.storage_queue,
             stop_event=self.stop_event,
-            cfg=cfg,
+            asr_cfg=cfg.asr,
+            storage_cfg=cfg.storage,
         )
         self.capture_worker = build_capture_module(
             wake_queue=self.wake_event_queue,
@@ -86,19 +105,19 @@ class AppRuntime:
             downstream_queue=self.capture_cmd_queue,
             storage_queue=self.storage_queue,
             stop_event=self.stop_event,
-            cfg=cfg,
+            cfg=cfg.capture,
         )
 
         self.injector_worker = build_injection_module(
             in_queue=self.capture_cmd_queue,
             stop_event=self.stop_event,
-            cfg=cfg,
+            cfg=cfg.injector,
         )
 
         self.storage_worker = build_storage_module(
             in_queue=self.storage_queue,
             stop_event=self.stop_event,
-            cfg=cfg,
+            cfg=cfg.storage,
         )
 
         self._startup_workers = (

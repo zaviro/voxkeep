@@ -16,10 +16,10 @@ from voxkeep.shared.asr_assets import write_assets_state
 def test_assets_state_round_trip(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
 
-    write_assets_state({"funasr_ws_managed": {"installed": True}})
+    write_assets_state({"qwen_vllm": {"installed": True}})
 
     assert assets_state_path().name == "installed.json"
-    assert read_assets_state()["funasr_ws_managed"]["installed"] is True
+    assert read_assets_state()["qwen_vllm"]["installed"] is True
 
 
 def test_read_assets_state_rejects_malformed_json(tmp_path, monkeypatch) -> None:
@@ -133,7 +133,7 @@ def test_check_env_runs_inline_websocket_probe_even_with_malformed_assets(
             env["PATH"] = f"{bin_dir}:{env['PATH']}"
             env["XDG_SESSION_TYPE"] = "x11"
             env["XDG_DATA_HOME"] = str(asset_dir)
-            env["VOXKEEP_ASR_BACKEND"] = "funasr_ws_external"
+            env["VOXKEEP_ASR_BACKEND"] = "qwen_vllm"
             env["VOXKEEP_ASR_EXTERNAL_HOST"] = "127.0.0.1"
             env["VOXKEEP_ASR_EXTERNAL_PORT"] = str(port)
             env["VOXKEEP_ASR_EXTERNAL_PATH"] = "/"

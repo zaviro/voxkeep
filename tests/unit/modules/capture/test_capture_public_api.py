@@ -22,7 +22,7 @@ def test_capture_module_emits_capture_completed_and_forwards_command(
         downstream_queue=downstream_q,
         storage_queue=storage_q,
         stop_event=stop_event,
-        cfg=app_config,
+        cfg=app_config.capture,
     )
     module.subscribe_capture_completed(lambda event: seen.append(event.text))
     module.start()
@@ -57,7 +57,7 @@ def test_capture_module_stop_sets_stop_event(app_config: AppConfig) -> None:
         downstream_queue=queue.Queue(),
         storage_queue=queue.Queue(),
         stop_event=stop_event,
-        cfg=app_config,
+        cfg=app_config.capture,
     )
 
     module.stop()

@@ -54,6 +54,8 @@ class AsrConfig:
     qwen_realtime: bool
     qwen_gpu_memory_utilization: float
     qwen_max_model_len: int
+    max_queue_size: int
+    sample_rate: int
 
     @property
     def ws_url(self) -> str:

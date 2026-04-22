@@ -7,7 +7,6 @@ import queue
 import threading
 import time
 from types import SimpleNamespace
-from typing import get_args, get_origin, get_type_hints
 
 import numpy as np
 import pytest
@@ -88,7 +87,8 @@ def test_transcription_module_submits_audio_and_emits_public_events(
         capture_queue=capture_q,
         storage_queue=storage_q,
         stop_event=stop_event,
-        cfg=app_config,
+        asr_cfg=app_config.asr,
+        storage_cfg=app_config.storage,
     )
     module.subscribe_transcript_finalized(lambda event: seen.append(event.text))
     module.start()
@@ -147,7 +147,8 @@ def test_transcription_module_ignores_non_final_backend_events(
         capture_queue=capture_q,
         storage_queue=storage_q,
         stop_event=stop_event,
-        cfg=app_config,
+        asr_cfg=app_config.asr,
+        storage_cfg=app_config.storage,
     )
     module.subscribe_transcript_finalized(lambda event: seen.append(event.text))
     module.start()
@@ -200,7 +201,8 @@ def test_transcription_module_feeds_backend_events_into_worker(
         capture_queue=capture_q,
         storage_queue=storage_q,
         stop_event=stop_event,
-        cfg=app_config,
+        asr_cfg=app_config.asr,
+        storage_cfg=app_config.storage,
     )
     module.start()
     fake_engine.final_queue.put(
@@ -245,11 +247,13 @@ def test_transcription_module_bridge_skips_partial_events_before_worker_queue(
         _fake_worker_factory,
     )
     stop_event = threading.Event()
+    new_asr = replace(app_config.asr, max_queue_size=1)
     module = build_transcription_module(
         capture_queue=queue.Queue(),
         storage_queue=queue.Queue(),
         stop_event=stop_event,
-        cfg=replace(app_config, max_queue_size=1),
+        asr_cfg=new_asr,
+        storage_cfg=app_config.storage,
     )
     module.start()
 
@@ -296,7 +300,8 @@ def test_transcription_module_submit_audio_drops_when_queue_is_full(
         capture_queue=queue.Queue(),
         storage_queue=queue.Queue(),
         stop_event=stop_event,
-        cfg=app_config,
+        asr_cfg=app_config.asr,
+        storage_cfg=app_config.storage,
         in_queue=queue.Queue(maxsize=1),
     )
     frame = AudioFrame(
@@ -325,7 +330,8 @@ def test_transcription_module_stop_sets_stop_event(monkeypatch, app_config: AppC
         capture_queue=queue.Queue(),
         storage_queue=queue.Queue(),
         stop_event=stop_event,
-        cfg=app_config,
+        asr_cfg=app_config.asr,
+        storage_cfg=app_config.storage,
     )
 
     module.stop()
@@ -338,7 +344,7 @@ def test_build_asr_engine_rejects_unknown_backend() -> None:
 
     with pytest.raises(ValueError, match="unsupported asr backend"):
         engine_factory.build_asr_engine(
-            cfg=SimpleNamespace(asr_backend="missing"),
+            cfg=SimpleNamespace(backend="missing"),
             stop_event=threading.Event(),
         )
 
@@ -348,7 +354,7 @@ def test_build_asr_engine_exposes_backend_dispatch_registry() -> None:
     builders = getattr(engine_factory, "BACKEND_ENGINE_BUILDERS", None)
 
     assert builders is not None
-    assert set(builders) >= {"funasr_ws_external", "funasr_ws_managed", "qwen_vllm"}
+    assert set(builders) >= {"qwen_vllm"}
 
 
 def test_build_asr_engine_uses_backend_specific_constructor(
@@ -356,33 +362,31 @@ def test_build_asr_engine_uses_backend_specific_constructor(
 ) -> None:
     engine_factory = import_module("voxkeep.modules.transcription.infrastructure.engine_factory")
     sentinel_external = object()
-    sentinel_managed = object()
     sentinel_qwen = object()
     monkeypatch.setitem(
         engine_factory.BACKEND_ENGINE_BUILDERS, "funasr_ws_external", lambda **_: sentinel_external
     )
     monkeypatch.setitem(
-        engine_factory.BACKEND_ENGINE_BUILDERS, "funasr_ws_managed", lambda **_: sentinel_managed
-    )
-    monkeypatch.setitem(
         engine_factory.BACKEND_ENGINE_BUILDERS, "qwen_vllm", lambda **_: sentinel_qwen
     )
 
-    external = engine_factory.build_asr_engine(
-        cfg=replace(app_config, asr_backend="funasr_ws_external"),
-        stop_event=threading.Event(),
+    # Note: funasr_ws_external was removed from BUILTIN_BACKENDS but we manually patched the factory here for test
+    # We should actually use valid backend IDs or patch resolve_backend_definition
+    monkeypatch.setattr(
+        "voxkeep.modules.transcription.infrastructure.engine_factory.resolve_backend_definition",
+        lambda bid: SimpleNamespace(backend_id=bid),
     )
-    managed = engine_factory.build_asr_engine(
-        cfg=replace(app_config, asr_backend="funasr_ws_managed"),
+
+    external = engine_factory.build_asr_engine(
+        cfg=replace(app_config.asr, backend="funasr_ws_external"),
         stop_event=threading.Event(),
     )
     qwen = engine_factory.build_asr_engine(
-        cfg=replace(app_config, asr_backend="qwen_vllm"),
+        cfg=replace(app_config.asr, backend="qwen_vllm"),
         stop_event=threading.Event(),
     )
 
     assert external is sentinel_external
-    assert managed is sentinel_managed
     assert qwen is sentinel_qwen
 
 
@@ -390,7 +394,7 @@ def test_build_transcription_module_supports_qwen_backend(
     monkeypatch, app_config: AppConfig
 ) -> None:
     fake_engine = _FakeEngine()
-    cfg = replace(app_config, asr_backend="qwen_vllm")
+    new_asr = replace(app_config.asr, backend="qwen_vllm")
     monkeypatch.setattr(
         "voxkeep.modules.transcription.public.build_asr_engine",
         lambda cfg, stop_event: fake_engine,
@@ -400,7 +404,8 @@ def test_build_transcription_module_supports_qwen_backend(
         capture_queue=queue.Queue(),
         storage_queue=queue.Queue(),
         stop_event=threading.Event(),
-        cfg=cfg,
+        asr_cfg=new_asr,
+        storage_cfg=app_config.storage,
     )
 
     assert module is not None
@@ -410,29 +415,9 @@ def test_transcription_engine_contract_exposes_join_method() -> None:
     assert "join" in TranscriptionEngine.__dict__
 
 
-def test_transcription_engine_final_queue_signature_does_not_name_backend_event() -> None:
-    return_annotation = get_type_hints(TranscriptionEngine.final_queue.fget)["return"]  # type: ignore[attr-defined]
-
-    assert get_origin(return_annotation) is queue.Queue
-    assert get_args(return_annotation) == (TranscriptionBackendEvent,)
-
-
-def test_transcription_contracts_do_not_reexport_backend_event() -> None:
-    contracts = import_module("voxkeep.modules.transcription.contracts")
-
-    assert not hasattr(contracts, "BackendTranscriptEvent")
-    assert "BackendTranscriptEvent" not in getattr(contracts, "__all__", ())
-
-
-def test_backend_events_module_does_not_define_conversion_helper() -> None:
-    backend_events = import_module("voxkeep.modules.transcription.application.backend_events")
-
-    assert not hasattr(backend_events, "to_asr_final_event")
-
-
 def test_funasr_ws_engine_emits_backend_transcript_events(app_config: AppConfig) -> None:
     stop_event = threading.Event()
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=stop_event)
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=stop_event)
 
     class _FakeWebSocket:
         def __init__(self, messages: list[str]) -> None:

@@ -370,7 +370,10 @@ def test_runtime_init_wires_asr_and_capture_queues(monkeypatch, app_config: AppC
     monkeypatch.setattr(
         "voxkeep.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
     )
-    cfg = replace(app_config, max_queue_size=8)
+    cfg = replace(
+        app_config,
+        audio_engine=replace(app_config.audio_engine, max_queue_size=8),
+    )
 
     runtime = AppRuntime(cfg)
 
@@ -406,7 +409,7 @@ def test_runtime_builds_storage_through_module_public_api(monkeypatch, app_confi
     assert runtime.storage_worker is not None
     assert built["in_queue"] is runtime.storage_queue
     assert built["stop_event"] is runtime.stop_event
-    assert built["cfg"] is app_config
+    assert built["cfg"] is app_config.storage
 
 
 def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_config: AppConfig):
@@ -437,7 +440,7 @@ def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_con
     assert runtime.injector_worker is not None
     assert built["in_queue"] is runtime.capture_cmd_queue
     assert built["stop_event"] is runtime.stop_event
-    assert built["cfg"] is app_config
+    assert built["cfg"] is app_config.injector
 
 
 def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_config: AppConfig):
@@ -469,6 +472,7 @@ def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_confi
     assert built["asr_queue"] is runtime.capture_asr_queue
     assert built["downstream_queue"] is runtime.capture_cmd_queue
     assert built["storage_queue"] is runtime.storage_queue
+    assert built["cfg"] is app_config.capture
 
 
 def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app_config: AppConfig):
@@ -502,7 +506,8 @@ def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app
     assert built["capture_queue"] is runtime.capture_asr_queue
     assert built["storage_queue"] is runtime.storage_queue
     assert built["stop_event"] is runtime.stop_event
-    assert built["cfg"] is app_config
+    assert built["asr_cfg"] is app_config.asr
+    assert built["storage_cfg"] is app_config.storage
 
 
 def test_runtime_builds_qwen_transcription_backend_through_public_api(
@@ -521,7 +526,7 @@ def test_runtime_builds_qwen_transcription_backend_through_public_api(
         lambda **_kwargs: _FakeStorageModule(),
     )
     built: dict[str, object] = {}
-    qwen_cfg = replace(app_config, asr_backend="qwen_vllm")
+    qwen_cfg = replace(app_config, asr=replace(app_config.asr, backend="qwen_vllm"))
 
     def _build_transcription_module(**kwargs):  # type: ignore[no-untyped-def]
         built.update(kwargs)
@@ -535,8 +540,8 @@ def test_runtime_builds_qwen_transcription_backend_through_public_api(
     runtime = AppRuntime(qwen_cfg)
 
     assert runtime.asr_worker is not None
-    assert built["cfg"] is qwen_cfg
-    assert built["cfg"].asr_backend == "qwen_vllm"
+    assert built["asr_cfg"] is qwen_cfg.asr
+    assert built["asr_cfg"].backend == "qwen_vllm"
 
 
 def test_run_forever_raises_when_worker_is_unhealthy():

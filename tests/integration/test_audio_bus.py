@@ -2,7 +2,7 @@ import queue
 import threading
 import time
 
-from voxkeep.modules.runtime.infrastructure.audio_bus import AudioBus
+from voxkeep.modules.audio_engine.infrastructure.audio_bus import AudioBus
 from voxkeep.shared.events import RawAudioChunk
 
 

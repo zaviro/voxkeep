@@ -13,7 +13,7 @@ def test_storage_module_converts_public_events_to_storage_writes(app_config: App
     module = build_storage_module(
         in_queue=queue.Queue(),
         stop_event=threading.Event(),
-        cfg=app_config,
+        cfg=app_config.storage,
     )
 
     transcript_write = module.store_transcript(
@@ -60,7 +60,7 @@ def test_storage_module_stop_sets_stop_event(app_config: AppConfig) -> None:
     module = build_storage_module(
         in_queue=queue.Queue(),
         stop_event=stop_event,
-        cfg=app_config,
+        cfg=app_config.storage,
     )
 
     module.stop()

@@ -17,7 +17,7 @@ def test_injection_module_executes_capture_completed(monkeypatch, app_config: Ap
     module = build_injection_module(
         in_queue=queue.Queue(),
         stop_event=threading.Event(),
-        cfg=app_config,
+        cfg=app_config.injector,
     )
 
     result = module.execute_capture(
@@ -43,7 +43,7 @@ def test_injection_module_stop_sets_stop_event(monkeypatch, app_config: AppConfi
     module = build_injection_module(
         in_queue=queue.Queue(),
         stop_event=stop_event,
-        cfg=app_config,
+        cfg=app_config.injector,
     )
 
     module.stop()
@@ -86,7 +86,7 @@ def test_injection_module_execute_capture_uses_public_worker_api(
     module = build_injection_module(
         in_queue=queue.Queue(),
         stop_event=threading.Event(),
-        cfg=app_config,
+        cfg=app_config.injector,
     )
 
     result = module.execute_capture(

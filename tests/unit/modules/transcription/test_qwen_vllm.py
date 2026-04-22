@@ -22,7 +22,7 @@ class _FakeWebSocket:
 
 
 def test_parse_stream_event_maps_final_transcript(app_config) -> None:
-    engine = QwenVllmEngine(cfg=app_config, stop_event=threading.Event())
+    engine = QwenVllmEngine(cfg=app_config.asr, stop_event=threading.Event())
     payload = {
         "type": "transcript",
         "delta": {"text": "hello world"},
@@ -44,7 +44,7 @@ def test_parse_stream_event_maps_final_transcript(app_config) -> None:
 
 
 def test_receiver_discards_partial_events(app_config) -> None:
-    engine = QwenVllmEngine(cfg=app_config, stop_event=threading.Event())
+    engine = QwenVllmEngine(cfg=app_config.asr, stop_event=threading.Event())
 
     partial = {
         "type": "transcript",
@@ -61,7 +61,7 @@ def test_receiver_discards_partial_events(app_config) -> None:
 
 
 def test_clean_realtime_text_removes_language_prefix_and_tags(app_config) -> None:
-    engine = QwenVllmEngine(cfg=app_config, stop_event=threading.Event())
+    engine = QwenVllmEngine(cfg=app_config.asr, stop_event=threading.Event())
 
     cleaned = engine._clean_realtime_text(
         "language English<asr_text> Hello world\nlanguage Chinese<asr_text> again"
@@ -71,7 +71,7 @@ def test_clean_realtime_text_removes_language_prefix_and_tags(app_config) -> Non
 
 
 def test_clean_realtime_text_merges_repeated_segments(app_config) -> None:
-    engine = QwenVllmEngine(cfg=app_config, stop_event=threading.Event())
+    engine = QwenVllmEngine(cfg=app_config.asr, stop_event=threading.Event())
 
     cleaned = engine._clean_realtime_text(
         "\n".join(
@@ -91,7 +91,7 @@ def test_clean_realtime_text_merges_repeated_segments(app_config) -> None:
 
 
 def test_parse_stream_event_maps_realtime_done_to_final_transcript(app_config) -> None:
-    engine = QwenVllmEngine(cfg=app_config, stop_event=threading.Event())
+    engine = QwenVllmEngine(cfg=app_config.asr, stop_event=threading.Event())
     payload = {
         "type": "transcription.done",
         "text": (
@@ -116,6 +116,6 @@ def test_parse_stream_event_maps_realtime_done_to_final_transcript(app_config) -
 
 
 def test_parse_stream_event_discards_realtime_delta_payloads(app_config) -> None:
-    engine = QwenVllmEngine(cfg=app_config, stop_event=threading.Event())
+    engine = QwenVllmEngine(cfg=app_config.asr, stop_event=threading.Event())
 
     assert engine._parse_stream_event({"type": "transcription.delta", "delta": "hello"}) is None

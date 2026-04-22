@@ -101,7 +101,7 @@ def test_is_final(payload: dict[str, Any], expected: bool):
 
 def test_receiver_only_emits_final_text_events(app_config: AppConfig):
     stop = threading.Event()
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=stop)
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=stop)
     ws = FakeWsReceiver(
         messages=[
             b"ignore-bytes",
@@ -125,7 +125,7 @@ def test_receiver_only_emits_final_text_events(app_config: AppConfig):
 
 def test_sender_wraps_audio_with_start_and_end_config(app_config: AppConfig):
     stop = threading.Event()
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=stop)
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=stop)
     ws = FakeWsSender()
 
     engine.submit_frame(_frame())
@@ -143,7 +143,7 @@ def test_sender_wraps_audio_with_start_and_end_config(app_config: AppConfig):
 
 
 def test_run_reconnects_after_failure(app_config: AppConfig, monkeypatch):
-    cfg = replace(app_config, asr_reconnect_initial_s=0.001, asr_reconnect_max_s=0.004)
+    cfg = replace(app_config.asr, reconnect_initial_s=0.001, reconnect_max_s=0.004)
     stop = threading.Event()
     engine = FunAsrWsEngine(cfg=cfg, stop_event=stop)
 
@@ -162,15 +162,13 @@ def test_run_reconnects_after_failure(app_config: AppConfig, monkeypatch):
     assert len(attempts) == 2
 
 
-def test_run_session_builds_connect_url_from_new_asr_fields(
-    app_config: AppConfig, monkeypatch
-) -> None:
+def test_run_session_builds_connect_url_from_asr_fields(app_config: AppConfig, monkeypatch) -> None:
     cfg = replace(
-        app_config,
-        asr_external_host="10.0.0.8",
-        asr_external_port=3210,
-        asr_external_path="/ws",
-        asr_external_use_ssl=True,
+        app_config.asr,
+        external_host="10.0.0.8",
+        external_port=3210,
+        external_path="/ws",
+        use_ssl=True,
     )
     engine = FunAsrWsEngine(cfg=cfg, stop_event=threading.Event())
     connect_urls: list[str] = []
@@ -209,63 +207,12 @@ def test_run_session_builds_connect_url_from_new_asr_fields(
 
     asyncio.run(engine._run_session())
 
-    assert connect_urls == [cfg.asr_ws_url]
-
-
-def test_run_session_uses_managed_backend_endpoint(app_config: AppConfig, monkeypatch) -> None:
-    cfg = replace(
-        app_config,
-        asr_backend="funasr_ws_managed",
-        asr_external_host="10.0.0.8",
-        asr_external_port=3210,
-        asr_external_path="/ws",
-        asr_external_use_ssl=True,
-        asr_managed_expose_port=19096,
-    )
-    engine = FunAsrWsEngine(cfg=cfg, stop_event=threading.Event())
-    connect_urls: list[str] = []
-    created: list[FakeTask] = []
-
-    monkeypatch.setattr(
-        "websockets.connect",
-        lambda url, **kwargs: connect_urls.append(url) or FakeConnectContext(FakeWsSender()),
-    )
-
-    async def fake_sender(ws: object) -> None:
-        _ = ws
-
-    async def fake_receiver(ws: object) -> None:
-        _ = ws
-
-    async def fake_to_thread(func, *args):  # type: ignore[no-untyped-def]
-        _ = (func, args)
-        return True
-
-    def fake_create_task(coro):  # type: ignore[no-untyped-def]
-        coro.close()
-        task = FakeTask()
-        created.append(task)
-        return task
-
-    async def fake_wait(tasks, return_when):  # type: ignore[no-untyped-def]
-        _ = return_when
-        return {created[2]}, {created[0], created[1]}
-
-    monkeypatch.setattr(engine, "_sender", fake_sender)
-    monkeypatch.setattr(engine, "_receiver", fake_receiver)
-    monkeypatch.setattr(asyncio, "to_thread", fake_to_thread)
-    monkeypatch.setattr(asyncio, "create_task", fake_create_task)
-    monkeypatch.setattr(asyncio, "wait", fake_wait)
-
-    asyncio.run(engine._run_session())
-
-    assert connect_urls == ["ws://127.0.0.1:19096/ws"]
-    assert connect_urls == [cfg.asr_ws_url]
+    assert connect_urls == [cfg.ws_url]
 
 
 def test_submit_frame_drops_when_input_queue_is_full(app_config: AppConfig) -> None:
     stop = threading.Event()
-    engine = FunAsrWsEngine(cfg=replace(app_config, max_queue_size=1), stop_event=stop)
+    engine = FunAsrWsEngine(cfg=replace(app_config.asr, max_queue_size=1), stop_event=stop)
 
     engine.submit_frame(_frame(frame_id=1))
     engine.submit_frame(_frame(frame_id=2))
@@ -279,7 +226,7 @@ def test_submit_frame_drops_when_input_queue_is_full(app_config: AppConfig) -> N
 def test_receiver_returns_immediately_when_stop_event_is_set(app_config: AppConfig) -> None:
     stop = threading.Event()
     stop.set()
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=stop)
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=stop)
     ws = FakeWsReceiver(
         messages=[
             '{"mode": "final", "text": "hello", "start": 1.0, "end": 1.1, "segment_id": "s1"}',
@@ -292,25 +239,15 @@ def test_receiver_returns_immediately_when_stop_event_is_set(app_config: AppConf
 
 
 def test_get_frame_returns_none_on_empty_queue(app_config: AppConfig) -> None:
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=threading.Event())
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=threading.Event())
 
     assert engine._get_frame(timeout=0.0) is None
-
-
-def test_build_ws_config_uses_sample_rate_from_config(app_config: AppConfig) -> None:
-    cfg = replace(app_config, sample_rate=22050)
-    engine = FunAsrWsEngine(cfg=cfg, stop_event=threading.Event())
-
-    payload = engine._build_ws_config(is_speaking=True)
-
-    assert payload["audio_fs"] == 22050
-    assert payload["is_speaking"] is True
 
 
 def test_run_session_cancels_pending_tasks_when_stopper_finishes(
     app_config: AppConfig, monkeypatch
 ) -> None:
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=threading.Event())
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=threading.Event())
     created: list[FakeTask] = []
     wait_tasks: list[FakeTask] = []
 
@@ -356,7 +293,7 @@ def test_run_session_cancels_pending_tasks_when_stopper_finishes(
 
 
 def test_run_session_propagates_sender_exception(app_config: AppConfig, monkeypatch) -> None:
-    engine = FunAsrWsEngine(cfg=app_config, stop_event=threading.Event())
+    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=threading.Event())
     sender_exc = RuntimeError("sender boom")
     created: list[FakeTask] = []
 

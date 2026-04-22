@@ -3,7 +3,24 @@
 from __future__ import annotations
 
 from voxkeep.shared.config_loader import load_config
-from voxkeep.shared.config_schema import AppConfig, WakeRuleConfig
+from voxkeep.shared.config_schema import (
+    AppConfig,
+    AsrConfig,
+    AudioEngineConfig,
+    CaptureConfig,
+    InjectorConfig,
+    StorageConfig,
+    WakeRuleConfig,
+)
 
 
-__all__ = ["AppConfig", "WakeRuleConfig", "load_config"]
+__all__ = [
+    "AppConfig",
+    "AsrConfig",
+    "AudioEngineConfig",
+    "CaptureConfig",
+    "InjectorConfig",
+    "StorageConfig",
+    "WakeRuleConfig",
+    "load_config",
+]
