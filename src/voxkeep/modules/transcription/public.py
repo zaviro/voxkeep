@@ -14,7 +14,7 @@ from voxkeep.modules.transcription.application.transcription_service import (
 from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent, TranscriptionEngine
 from voxkeep.modules.transcription.infrastructure.asr_worker import AsrWorker as LegacyAsrWorker
 from voxkeep.modules.transcription.infrastructure.engine_factory import build_asr_engine
-from voxkeep.shared.config import AppConfig
+from voxkeep.shared.config import AsrConfig, StorageConfig
 from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame, StorageRecord
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 from voxkeep.shared.types import AudioFrame, TranscriptFinalized
@@ -62,21 +62,24 @@ class WorkerTranscriptionModule:
         capture_queue: queue.Queue[AsrFinalEvent],
         storage_queue: queue.Queue[StorageRecord],
         stop_event: threading.Event,
-        cfg: AppConfig,
+        asr_cfg: AsrConfig,
+        storage_cfg: StorageConfig,
         in_queue: queue.Queue[ProcessedFrame] | None = None,
     ) -> None:
         """Create a transcription module backed by existing implementations."""
-        self._in_queue = in_queue or queue.Queue(maxsize=cfg.max_queue_size)
-        self._public_out_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+        self._in_queue = in_queue or queue.Queue(maxsize=asr_cfg.max_queue_size)
+        self._public_out_queue: queue.Queue[AsrFinalEvent] = queue.Queue(
+            maxsize=asr_cfg.max_queue_size
+        )
         self._stop_event = stop_event
         self._handlers: list[Callable[[TranscriptFinalized], None]] = []
         self._backend_bridge_thread: threading.Thread | None = None
         self._fanout_thread: threading.Thread | None = None
 
-        self._engine: TranscriptionEngine = build_asr_engine(cfg=cfg, stop_event=stop_event)
+        self._engine: TranscriptionEngine = build_asr_engine(cfg=asr_cfg, stop_event=stop_event)
         self._backend_final_queue: queue.Queue[TranscriptionBackendEvent] = self._engine.final_queue
         self._final_in_queue: queue.Queue[TranscriptionBackendEvent] = queue.Queue(
-            maxsize=cfg.max_queue_size
+            maxsize=asr_cfg.max_queue_size
         )
         self._worker = LegacyAsrWorker(
             in_queue=self._in_queue,
@@ -86,7 +89,7 @@ class WorkerTranscriptionModule:
             storage_queue=storage_queue,
             stop_event=stop_event,
             engine=self._engine,
-            store_final_only=cfg.store_final_only,
+            store_final_only=storage_cfg.store_final_only,
         )
 
     def start(self) -> None:
@@ -174,7 +177,8 @@ def build_transcription_module(
     capture_queue: queue.Queue[AsrFinalEvent],
     storage_queue: queue.Queue[StorageRecord],
     stop_event: threading.Event,
-    cfg: AppConfig,
+    asr_cfg: AsrConfig,
+    storage_cfg: StorageConfig,
     in_queue: queue.Queue[ProcessedFrame] | None = None,
 ) -> TranscriptionModule:
     """Build the transcription module public entrypoint."""
@@ -182,7 +186,8 @@ def build_transcription_module(
         capture_queue=capture_queue,
         storage_queue=storage_queue,
         stop_event=stop_event,
-        cfg=cfg,
+        asr_cfg=asr_cfg,
+        storage_cfg=storage_cfg,
         in_queue=in_queue,
     )
 

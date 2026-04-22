@@ -17,7 +17,7 @@ from typing import Any, cast
 
 from voxkeep.modules.transcription.application.backend_events import BackendTranscriptEvent
 from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent
-from voxkeep.shared.config import AppConfig
+from voxkeep.shared.config import AsrConfig
 from voxkeep.shared.events import ProcessedFrame
 from voxkeep.shared.interfaces import ASREngine
 from voxkeep.shared.queue_utils import put_nowait_or_drop
@@ -40,14 +40,15 @@ class _SegmentWindow:
 class QwenVllmEngine(ASREngine):
     """ASR engine implementation backed by an externally managed Qwen vLLM service."""
 
-    def __init__(self, cfg: AppConfig, stop_event: threading.Event):
-        """Initialize engine queues and lifecycle state."""
+    def __init__(self, cfg: AsrConfig, stop_event: threading.Event):
+        """Initialize vLLM engine queues and lifecycle state."""
         self._cfg = cfg
         self._stop_event = stop_event
         self._in_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
         self._final_queue: queue.Queue[BackendTranscriptEvent] = queue.Queue(
             maxsize=cfg.max_queue_size
         )
+
         self._thread: threading.Thread | None = None
         self._segment_windows: deque[_SegmentWindow] = deque()
         self._current_partial_text = ""
@@ -88,13 +89,13 @@ class QwenVllmEngine(ASREngine):
         asyncio.run(self._run())
 
     async def _run(self) -> None:
-        backoff = self._cfg.asr_reconnect_initial_s
-        max_backoff = self._cfg.asr_reconnect_max_s
+        backoff = self._cfg.reconnect_initial_s
+        max_backoff = self._cfg.reconnect_max_s
 
         while not self._stop_event.is_set():
             try:
                 await self._run_session()
-                backoff = self._cfg.asr_reconnect_initial_s
+                backoff = self._cfg.reconnect_initial_s
             except Exception as exc:
                 logger.warning(
                     "qwen_vllm session error endpoint=%s error=%s reconnect_in=%.1fs",
@@ -115,7 +116,7 @@ class QwenVllmEngine(ASREngine):
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError("websockets package is required") from exc
 
-        if not self._cfg.asr_qwen_realtime:
+        if not self._cfg.qwen_realtime:
             raise RuntimeError(
                 "qwen_vllm requires asr.qwen.realtime=true; non-realtime mode is not implemented"
             )
@@ -267,10 +268,10 @@ class QwenVllmEngine(ASREngine):
         )
 
     def _endpoint_url(self) -> str:
-        return self._cfg.asr_ws_url
+        return self._cfg.ws_url
 
     def _model_name(self) -> str:
-        return self._cfg.asr_qwen_model
+        return self._cfg.qwen_model
 
     def _get_frame(self, timeout: float) -> ProcessedFrame | None:
         try:

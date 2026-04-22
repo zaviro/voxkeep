@@ -9,7 +9,7 @@ from typing import Callable, Protocol
 
 from voxkeep.modules.capture.infrastructure.openwakeword_worker import OpenWakeWordWorker
 from voxkeep.modules.capture.infrastructure.silero_worker import SileroVadWorker
-from voxkeep.shared.config import AppConfig
+from voxkeep.shared.config import CaptureConfig
 from voxkeep.shared.events import (
     AsrFinalEvent,
     CaptureCommand,
@@ -99,7 +99,7 @@ class WorkerCaptureModule:
         downstream_queue: queue.Queue[CaptureCommand],
         storage_queue: queue.Queue[StorageRecord],
         stop_event: threading.Event,
-        cfg: AppConfig,
+        cfg: CaptureConfig,
         wake_queue: queue.Queue[WakeEvent] | None = None,
         vad_queue: queue.Queue[VadEvent] | None = None,
         asr_queue: queue.Queue[AsrFinalEvent] | None = None,
@@ -190,7 +190,7 @@ def build_capture_module(
     downstream_queue: queue.Queue[CaptureCommand],
     storage_queue: queue.Queue[StorageRecord],
     stop_event: threading.Event,
-    cfg: AppConfig,
+    cfg: CaptureConfig,
     wake_queue: queue.Queue[WakeEvent] | None = None,
     vad_queue: queue.Queue[VadEvent] | None = None,
     asr_queue: queue.Queue[AsrFinalEvent] | None = None,
@@ -213,7 +213,7 @@ def build_capture_detection_workers(
     wake_out_queue: queue.Queue[WakeEvent],
     vad_out_queue: queue.Queue[VadEvent],
     stop_event: threading.Event,
-    cfg: AppConfig,
+    cfg: CaptureConfig,
 ) -> tuple[DetectionWorker, DetectionWorker]:
     """Build wake and VAD workers behind the capture module public API."""
     wake_worker = OpenWakeWordWorker(

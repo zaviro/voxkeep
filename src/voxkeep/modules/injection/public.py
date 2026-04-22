@@ -10,7 +10,7 @@ from voxkeep.modules.injection.application.execute_capture import to_capture_com
 from voxkeep.modules.injection.contracts import InjectionResult
 from voxkeep.modules.injection.infrastructure.factory import build_injector
 from voxkeep.modules.injection.infrastructure.injector_worker import InjectorWorker
-from voxkeep.shared.config import AppConfig
+from voxkeep.shared.config import InjectorConfig
 from voxkeep.shared.types import CaptureCompleted
 from voxkeep.shared.events import CaptureCommand
 
@@ -46,7 +46,7 @@ class WorkerInjectionModule:
         self,
         in_queue: queue.Queue[CaptureCommand],
         stop_event: threading.Event,
-        cfg: AppConfig,
+        cfg: InjectorConfig,
     ) -> None:
         """Create an injection module backed by the worker implementation."""
         self._stop_event = stop_event
@@ -84,7 +84,7 @@ def build_injection_module(
     *,
     in_queue: queue.Queue[CaptureCommand],
     stop_event: threading.Event,
-    cfg: AppConfig,
+    cfg: InjectorConfig,
 ) -> InjectionModule:
     """Build the injection module public entrypoint."""
     return WorkerInjectionModule(in_queue=in_queue, stop_event=stop_event, cfg=cfg)
