@@ -9,7 +9,7 @@ from typing import Protocol
 from voxkeep.modules.storage.application.store import build_capture_write, build_transcript_write
 from voxkeep.modules.storage.contracts import StorageWrite
 from voxkeep.modules.storage.infrastructure.sqlite_storage_worker import SqliteStorageWorker
-from voxkeep.shared.config import AppConfig
+from voxkeep.shared.config import StorageConfig
 from voxkeep.shared.types import CaptureCompleted, TranscriptFinalized
 from voxkeep.shared.events import StorageRecord
 
@@ -49,7 +49,7 @@ class SqliteStorageModule:
         self,
         in_queue: queue.Queue[StorageRecord],
         stop_event: threading.Event,
-        cfg: AppConfig,
+        cfg: StorageConfig,
     ) -> None:
         """Create a storage module backed by the SQLite worker."""
         self._in_queue = in_queue
@@ -90,7 +90,7 @@ def build_storage_module(
     *,
     in_queue: queue.Queue[StorageRecord],
     stop_event: threading.Event,
-    cfg: AppConfig,
+    cfg: StorageConfig,
 ) -> StorageModule:
     """Build the storage module public entrypoint."""
     return SqliteStorageModule(in_queue=in_queue, stop_event=stop_event, cfg=cfg)

@@ -22,6 +22,14 @@ make doctor
 make validate-config
 ```
 
+5. If you need to honor `config/config.yaml` exactly, run the CLI directly:
+
+```bash
+uv run --python 3.11 python -m voxkeep run --config config/config.yaml
+```
+
+`make run` goes through `scripts/run_local.sh`, which is still a FunASR-oriented compatibility launcher and may override the YAML backend via `VOXKEEP_ASR_*`.
+
 ## Quality Gates
 
 Run these checks before opening a PR:
@@ -52,7 +60,7 @@ PRs should include:
 
 - Summary of changes and rationale.
 - Test evidence (commands + outcomes).
-- Config/runtime impact (audio devices, wake model, FunASR endpoint) if relevant.
+- Config/runtime impact (ASR backend or endpoint, audio devices, wake model, injector backend) if relevant.
 
 ## Testing Notes
 
@@ -60,6 +68,15 @@ PRs should include:
 - E2E tests are in `tests/e2e`; some require opt-in env vars.
 - `make doctor` is the preferred first-stop command when local runtime checks fail.
 - `make validate-config` validates `config/config.yaml` plus `VOXKEEP_*` environment overrides.
+- `backend current` and `backend doctor` are the preferred backend-specific checks before blaming runtime code:
+
+```bash
+uv run --python 3.11 python -m voxkeep backend current --config config/config.yaml
+uv run --python 3.11 python -m voxkeep backend doctor --config config/config.yaml
+```
+
+`backend doctor` reports backend health classification and may return `assets_missing` before any live endpoint probe if the persisted asset state is absent.
+
 - GPT-SoVITS E2E 使用预生成夹具，首次执行：
 
 ```bash

@@ -52,10 +52,10 @@
 
 ## 4. Test layout mapping
 
-- `tests/test_config.py` -> `tests/unit/core/test_config.py`
-- `tests/test_boundaries.py` -> `tests/unit/core/test_boundaries.py`
-- `tests/test_capture_fsm.py` -> `tests/unit/agents/test_capture_fsm.py`
-- `tests/test_injector.py` -> `tests/unit/tools/test_injector.py`
+- `tests/test_config.py` -> `tests/unit/shared/test_config.py`
+- `tests/test_boundaries.py` -> `tests/unit/shared/test_boundaries.py`
+- `tests/test_capture_fsm.py` -> `tests/unit/modules/capture/test_capture_fsm.py`
+- `tests/test_injector.py` -> `tests/unit/modules/injection/test_injector_factory.py`
 
 - `tests/test_audio_bus.py` -> `tests/integration/test_audio_bus.py`
 - `tests/test_audio_capture.py` -> `tests/integration/test_audio_capture.py`

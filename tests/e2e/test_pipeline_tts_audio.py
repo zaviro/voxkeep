@@ -25,7 +25,7 @@ from voxkeep.shared.events import (
     WakeEvent,
 )
 from voxkeep.modules.transcription.infrastructure.asr_worker import AsrWorker
-from voxkeep.modules.runtime.infrastructure.audio_bus import AudioBus
+from voxkeep.modules.audio_engine.infrastructure.audio_bus import AudioBus
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -154,21 +154,25 @@ def test_pipeline_end_to_end_with_gptsovits_audio(app_config: AppConfig):
     audio_path = _require_fixture(ALEXA_AUDIO)
 
     cfg = replace(
-        app_config, frame_ms=20, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
+        app_config,
+        audio_engine=replace(app_config.audio_engine, frame_ms=20, max_queue_size=64),
+        capture=replace(
+            app_config.capture, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
+        ),
     )
     stop_event = threading.Event()
 
-    raw_q: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.max_queue_size)
-    wake_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-    vad_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-    asr_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
+    raw_q: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    wake_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    vad_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    asr_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
 
-    wake_event_q: queue.Queue[WakeEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    vad_event_q: queue.Queue[VadEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    capture_asr_q: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    capture_cmd_q = queue.Queue(maxsize=cfg.max_queue_size)
-    storage_q: queue.Queue[StorageRecord] = queue.Queue(maxsize=cfg.max_queue_size)
+    wake_event_q: queue.Queue[WakeEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    vad_event_q: queue.Queue[VadEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    capture_asr_q: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    capture_cmd_q = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    storage_q: queue.Queue[StorageRecord] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
 
     audio_bus = AudioBus(
         raw_queue=raw_q,
@@ -197,23 +201,25 @@ def test_pipeline_end_to_end_with_gptsovits_audio(app_config: AppConfig):
         out_queue=capture_cmd_q,
         storage_queue=storage_q,
         stop_event=stop_event,
-        fsm=CaptureFSM(pre_roll_ms=cfg.pre_roll_ms, armed_timeout_ms=cfg.armed_timeout_ms),
+        fsm=CaptureFSM(
+            pre_roll_ms=cfg.capture.pre_roll_ms, armed_timeout_ms=cfg.capture.armed_timeout_ms
+        ),
         transcript_extractor=InMemoryTranscriptExtractor(),
         action_by_keyword={"alexa": "inject_text"},
         default_action="inject_text",
     )
 
     tts_pcm, tts_sr = _load_wav_pcm_f32(audio_path)
-    if tts_sr != cfg.sample_rate:
+    if tts_sr != cfg.audio_engine.sample_rate:
         raise RuntimeError(
-            f"fixture sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
+            f"fixture sample_rate={tts_sr} does not match pipeline sample_rate={cfg.audio_engine.sample_rate}"
         )
 
     ts_base = 100.0
     raw_chunks = _chunk_raw_audio(
         tts_pcm,
-        sample_rate=cfg.sample_rate,
-        frame_samples=cfg.frame_samples,
+        sample_rate=cfg.audio_engine.sample_rate,
+        frame_samples=cfg.audio_engine.frame_samples,
         ts_base=ts_base,
     )
 
@@ -229,7 +235,7 @@ def test_pipeline_end_to_end_with_gptsovits_audio(app_config: AppConfig):
 
     vad_event_q.put(
         VadEvent(
-            ts=ts_base + (len(raw_chunks) * cfg.frame_ms / 1000.0) + 0.05,
+            ts=ts_base + (len(raw_chunks) * cfg.audio_engine.frame_ms / 1000.0) + 0.05,
             event_type="speech_end",
             score=0.1,
         )
@@ -258,21 +264,25 @@ def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
     audio_path = _require_fixture(HEY_JARVIS_AUDIO)
 
     cfg = replace(
-        app_config, frame_ms=20, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
+        app_config,
+        audio_engine=replace(app_config.audio_engine, frame_ms=20, max_queue_size=64),
+        capture=replace(
+            app_config.capture, pre_roll_ms=120, armed_timeout_ms=3000, max_queue_size=64
+        ),
     )
     stop_event = threading.Event()
 
-    raw_q: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.max_queue_size)
-    wake_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-    vad_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-    asr_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
+    raw_q: queue.Queue[RawAudioChunk] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    wake_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    vad_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    asr_audio_q: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
 
-    wake_event_q: queue.Queue[WakeEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    vad_event_q: queue.Queue[VadEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    capture_asr_q: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
-    capture_cmd_q = queue.Queue(maxsize=cfg.max_queue_size)
-    storage_q: queue.Queue[StorageRecord] = queue.Queue(maxsize=cfg.max_queue_size)
+    wake_event_q: queue.Queue[WakeEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    vad_event_q: queue.Queue[VadEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    asr_event_bus: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    capture_asr_q: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    capture_cmd_q = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
+    storage_q: queue.Queue[StorageRecord] = queue.Queue(maxsize=cfg.audio_engine.max_queue_size)
 
     audio_bus = AudioBus(
         raw_queue=raw_q,
@@ -301,23 +311,25 @@ def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
         out_queue=capture_cmd_q,
         storage_queue=storage_q,
         stop_event=stop_event,
-        fsm=CaptureFSM(pre_roll_ms=cfg.pre_roll_ms, armed_timeout_ms=cfg.armed_timeout_ms),
+        fsm=CaptureFSM(
+            pre_roll_ms=cfg.capture.pre_roll_ms, armed_timeout_ms=cfg.capture.armed_timeout_ms
+        ),
         transcript_extractor=InMemoryTranscriptExtractor(),
         action_by_keyword={"hey_jarvis": "openclaw_agent"},
         default_action="inject_text",
     )
 
     tts_pcm, tts_sr = _load_wav_pcm_f32(audio_path)
-    if tts_sr != cfg.sample_rate:
+    if tts_sr != cfg.audio_engine.sample_rate:
         raise RuntimeError(
-            f"fixture sample_rate={tts_sr} does not match pipeline sample_rate={cfg.sample_rate}"
+            f"fixture sample_rate={tts_sr} does not match pipeline sample_rate={cfg.audio_engine.sample_rate}"
         )
 
     ts_base = 100.0
     raw_chunks = _chunk_raw_audio(
         tts_pcm,
-        sample_rate=cfg.sample_rate,
-        frame_samples=cfg.frame_samples,
+        sample_rate=cfg.audio_engine.sample_rate,
+        frame_samples=cfg.audio_engine.frame_samples,
         ts_base=ts_base,
     )
 
@@ -333,7 +345,7 @@ def test_pipeline_end_to_end_with_gptsovits_openclaw_chain(
 
     vad_event_q.put(
         VadEvent(
-            ts=ts_base + (len(raw_chunks) * cfg.frame_ms / 1000.0) + 0.05,
+            ts=ts_base + (len(raw_chunks) * cfg.audio_engine.frame_ms / 1000.0) + 0.05,
             event_type="speech_end",
             score=0.1,
         )

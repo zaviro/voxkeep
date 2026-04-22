@@ -66,5 +66,23 @@ def test_bootstrap_does_not_import_legacy_layers() -> None:
     assert _legacy_import_violations("bootstrap") == []
 
 
+def test_bootstrap_does_not_import_capture_internals() -> None:
+    assert (
+        _import_violations_for_prefix("bootstrap", "voxkeep.modules.capture.infrastructure.") == []
+    )
+
+
 def test_repository_has_no_legacy_runtime_files() -> None:
     assert _legacy_runtime_files() == []
+
+
+def _import_violations_for_prefix(package: str, prefix: str) -> list[str]:
+    root = SRC_ROOT / package
+    violations: list[str] = []
+    for path in root.rglob("*.py"):
+        module_name = _module_name_for(path)
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for imported in _imported_names(tree):
+            if imported.startswith(prefix):
+                violations.append(f"{module_name} -> {imported}")
+    return sorted(violations)

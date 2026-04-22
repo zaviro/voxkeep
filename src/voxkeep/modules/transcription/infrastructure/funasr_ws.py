@@ -10,10 +10,13 @@ import threading
 import time
 from typing import Any
 import uuid
+from typing import cast
 
+from voxkeep.modules.transcription.application.backend_events import BackendTranscriptEvent
+from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent
 from voxkeep.shared.interfaces import ASREngine
-from voxkeep.shared.config import AppConfig
-from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame
+from voxkeep.shared.config import AsrConfig
+from voxkeep.shared.events import ProcessedFrame
 from voxkeep.shared.queue_utils import put_nowait_or_drop
 
 logger = logging.getLogger(__name__)
@@ -25,18 +28,20 @@ _FRAME_POLL_TIMEOUT_S = 0.1
 class FunAsrWsEngine(ASREngine):
     """ASR engine implementation backed by FunASR websocket sessions."""
 
-    def __init__(self, cfg: AppConfig, stop_event: threading.Event):
+    def __init__(self, cfg: AsrConfig, stop_event: threading.Event):
         """Initialize websocket engine queues and lifecycle state."""
         self._cfg = cfg
         self._stop_event = stop_event
         self._in_queue: queue.Queue[ProcessedFrame] = queue.Queue(maxsize=cfg.max_queue_size)
-        self._final_queue: queue.Queue[AsrFinalEvent] = queue.Queue(maxsize=cfg.max_queue_size)
+        self._final_queue: queue.Queue[BackendTranscriptEvent] = queue.Queue(
+            maxsize=cfg.max_queue_size
+        )
         self._thread: threading.Thread | None = None
 
     @property
-    def final_queue(self) -> queue.Queue[AsrFinalEvent]:
+    def final_queue(self) -> queue.Queue[TranscriptionBackendEvent]:
         """Return queue receiving finalized transcript events."""
-        return self._final_queue
+        return cast(queue.Queue[TranscriptionBackendEvent], self._final_queue)
 
     def start(self) -> None:
         """Start background asyncio loop thread once."""
@@ -67,13 +72,13 @@ class FunAsrWsEngine(ASREngine):
         asyncio.run(self._run())
 
     async def _run(self) -> None:
-        backoff = self._cfg.asr_reconnect_initial_s
-        max_backoff = self._cfg.asr_reconnect_max_s
+        backoff = self._cfg.reconnect_initial_s
+        max_backoff = self._cfg.reconnect_max_s
 
         while not self._stop_event.is_set():
             try:
                 await self._run_session()
-                backoff = self._cfg.asr_reconnect_initial_s
+                backoff = self._cfg.reconnect_initial_s
             except Exception as exc:
                 logger.warning("asr websocket session error=%s reconnect_in=%.1fs", exc, backoff)
                 should_stop = await asyncio.to_thread(self._stop_event.wait, backoff)
@@ -90,7 +95,7 @@ class FunAsrWsEngine(ASREngine):
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError("websockets package is required") from exc
 
-        url = self._cfg.asr_ws_url
+        url = self._cfg.ws_url
         logger.info("asr websocket connecting url=%s", url)
         async with websockets.connect(
             url,
@@ -145,12 +150,12 @@ class FunAsrWsEngine(ASREngine):
             end_ts = float(payload.get("end") or payload.get("end_time") or now)
             segment_id = str(payload.get("segment_id") or payload.get("sid") or uuid.uuid4())
 
-            event = AsrFinalEvent(
+            event = BackendTranscriptEvent(
                 segment_id=segment_id,
                 text=text,
                 start_ts=start_ts,
                 end_ts=end_ts,
-                is_final=True,
+                event_type="final",
             )
             put_nowait_or_drop(
                 self._final_queue,

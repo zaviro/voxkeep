@@ -37,6 +37,10 @@ class _AudioSourceRecorder(_CallRecorder):
 
 
 class _AudioSourceFailure(_AudioSourceRecorder):
+    def start(self) -> None:
+        self._calls.append(f"start:{self._name}")
+        raise RuntimeError("boom")
+
     def stop(self) -> None:
         self._calls.append(f"stop:{self._name}")
         raise RuntimeError("boom")
@@ -158,12 +162,8 @@ class _FakeTranscriptionModule(TranscriptionModule):
 @pytest.fixture(autouse=True)
 def _patch_runtime_ai_worker_builders(monkeypatch) -> None:
     monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_wake_worker",
-        lambda **_kwargs: _FakeWorker(),
-    )
-    monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_vad_worker",
-        lambda **_kwargs: _FakeWorker(),
+        "voxkeep.bootstrap.runtime_app.build_capture_detection_workers",
+        lambda **_kwargs: (_FakeWorker(), _FakeWorker()),
     )
 
 
@@ -233,13 +233,8 @@ def test_runtime_builds_runtime_ai_workers_through_builder_functions(
         lambda **_kwargs: _FakeTranscriptionModule(),
     )
     monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_wake_worker",
-        lambda **_kwargs: fake_wake_worker,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "voxkeep.bootstrap.runtime_app.build_vad_worker",
-        lambda **_kwargs: fake_vad_worker,
+        "voxkeep.bootstrap.runtime_app.build_capture_detection_workers",
+        lambda **_kwargs: (fake_wake_worker, fake_vad_worker),
         raising=False,
     )
 
@@ -247,6 +242,29 @@ def test_runtime_builds_runtime_ai_workers_through_builder_functions(
 
     assert runtime.wake_worker is fake_wake_worker
     assert runtime.vad_worker is fake_vad_worker
+
+
+def test_runtime_does_not_expose_transcription_private_engine(monkeypatch, app_config: AppConfig):
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
+        lambda **_kwargs: _FakeTranscriptionModule(),
+    )
+
+    runtime = AppRuntime(app_config)
+
+    assert not hasattr(runtime, "asr_engine")
 
 
 def test_runtime_start_and_stop_call_components_in_order():
@@ -352,7 +370,10 @@ def test_runtime_init_wires_asr_and_capture_queues(monkeypatch, app_config: AppC
     monkeypatch.setattr(
         "voxkeep.bootstrap.runtime_app.build_storage_module", lambda **_kwargs: fake_storage
     )
-    cfg = replace(app_config, max_queue_size=8)
+    cfg = replace(
+        app_config,
+        audio_engine=replace(app_config.audio_engine, max_queue_size=8),
+    )
 
     runtime = AppRuntime(cfg)
 
@@ -388,7 +409,7 @@ def test_runtime_builds_storage_through_module_public_api(monkeypatch, app_confi
     assert runtime.storage_worker is not None
     assert built["in_queue"] is runtime.storage_queue
     assert built["stop_event"] is runtime.stop_event
-    assert built["cfg"] is app_config
+    assert built["cfg"] is app_config.storage
 
 
 def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_config: AppConfig):
@@ -419,7 +440,7 @@ def test_runtime_builds_injection_through_module_public_api(monkeypatch, app_con
     assert runtime.injector_worker is not None
     assert built["in_queue"] is runtime.capture_cmd_queue
     assert built["stop_event"] is runtime.stop_event
-    assert built["cfg"] is app_config
+    assert built["cfg"] is app_config.injector
 
 
 def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_config: AppConfig):
@@ -451,6 +472,7 @@ def test_runtime_builds_capture_through_module_public_api(monkeypatch, app_confi
     assert built["asr_queue"] is runtime.capture_asr_queue
     assert built["downstream_queue"] is runtime.capture_cmd_queue
     assert built["storage_queue"] is runtime.storage_queue
+    assert built["cfg"] is app_config.capture
 
 
 def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app_config: AppConfig):
@@ -484,7 +506,42 @@ def test_runtime_builds_transcription_through_module_public_api(monkeypatch, app
     assert built["capture_queue"] is runtime.capture_asr_queue
     assert built["storage_queue"] is runtime.storage_queue
     assert built["stop_event"] is runtime.stop_event
-    assert built["cfg"] is app_config
+    assert built["asr_cfg"] is app_config.asr
+    assert built["storage_cfg"] is app_config.storage
+
+
+def test_runtime_builds_qwen_transcription_backend_through_public_api(
+    monkeypatch, app_config: AppConfig
+) -> None:
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_capture_module",
+        lambda **_kwargs: _FakeCaptureModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_injection_module",
+        lambda **_kwargs: _FakeInjectionModule(),
+    )
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_storage_module",
+        lambda **_kwargs: _FakeStorageModule(),
+    )
+    built: dict[str, object] = {}
+    qwen_cfg = replace(app_config, asr=replace(app_config.asr, backend="qwen_vllm"))
+
+    def _build_transcription_module(**kwargs):  # type: ignore[no-untyped-def]
+        built.update(kwargs)
+        return _FakeTranscriptionModule()
+
+    monkeypatch.setattr(
+        "voxkeep.bootstrap.runtime_app.build_transcription_module",
+        _build_transcription_module,
+    )
+
+    runtime = AppRuntime(qwen_cfg)
+
+    assert runtime.asr_worker is not None
+    assert built["asr_cfg"] is qwen_cfg.asr
+    assert built["asr_cfg"].backend == "qwen_vllm"
 
 
 def test_run_forever_raises_when_worker_is_unhealthy():
@@ -499,3 +556,53 @@ def test_run_forever_raises_when_worker_is_unhealthy():
 
     assert runtime.stop_event.is_set() is True
     assert runtime.fatal_error == "worker stopped unexpectedly: asr_worker"
+
+
+def test_find_unhealthy_workers_returns_all_dead_workers():
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime._startup_workers = (
+        runtime._worker_handle("wake_worker", _CallRecorder("wake_worker", []), 1),
+        runtime._worker_handle("vad_worker", _CallRecorder("vad_worker", []), 1),
+    )
+
+    assert runtime._find_unhealthy_workers() == ("wake_worker", "vad_worker")
+
+
+def test_run_forever_exits_cleanly_when_stop_event_already_set():
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime.stop_event = threading.Event()
+    runtime.stop_event.set()
+    runtime._fatal_error = None
+    runtime._startup_workers = ()
+
+    runtime.run_forever()
+
+    assert runtime.fatal_error is None
+
+
+def test_start_propagates_audio_source_start_failure():
+    calls: list[str] = []
+    runtime = AppRuntime.__new__(AppRuntime)
+    runtime.stop_event = threading.Event()
+    runtime.storage_worker = _CallRecorder("storage_worker", calls)
+    runtime.capture_worker = _CallRecorder("capture_worker", calls)
+    runtime.injector_worker = _CallRecorder("injector_worker", calls)
+    runtime.wake_worker = _CallRecorder("wake_worker", calls)
+    runtime.vad_worker = _CallRecorder("vad_worker", calls)
+    runtime.asr_worker = _CallRecorder("asr_worker", calls)
+    runtime.audio_bus = _CallRecorder("audio_bus", calls)
+    runtime.audio_source = _AudioSourceFailure("audio_source", calls)
+    runtime._startup_workers = (
+        runtime._worker_handle("storage_worker", runtime.storage_worker, 2),
+        runtime._worker_handle("capture_worker", runtime.capture_worker, 2),
+        runtime._worker_handle("injector_worker", runtime.injector_worker, 2),
+        runtime._worker_handle("wake_worker", runtime.wake_worker, 2),
+        runtime._worker_handle("vad_worker", runtime.vad_worker, 2),
+        runtime._worker_handle("asr_worker", runtime.asr_worker, 3),
+        runtime._worker_handle("audio_bus", runtime.audio_bus, 2),
+    )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        runtime.start()
+
+    assert calls[-1] == "start:audio_source"

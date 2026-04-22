@@ -1,6 +1,7 @@
 # ruff: noqa: D100,D101,D102,D107
 from __future__ import annotations
 
+from importlib import import_module
 import logging
 import os
 import queue
@@ -40,7 +41,7 @@ class OpenWakeWordScorer:
     @classmethod
     def try_create(cls, model_names: Sequence[str] | None = None) -> WakeScorer:
         try:
-            from openwakeword.model import Model
+            model_module = import_module("openwakeword.model")
         except Exception as exc:
             logger.warning("openwakeword unavailable; fallback to null scorer: %s", exc)
             return NullWakeScorer()
@@ -52,7 +53,10 @@ class OpenWakeWordScorer:
             fallback = os.environ.get("VOXKEEP_WAKE_MODEL", "alexa").strip() or "alexa"
             selected_models = (fallback,)
         try:
-            model = Model(wakeword_models=list(selected_models), inference_framework="onnx")
+            model = model_module.Model(
+                wakeword_models=list(selected_models),
+                inference_framework="onnx",
+            )
         except Exception as exc:
             logger.warning(
                 "openwakeword onnx init failed; fallback to null scorer: %s. "

@@ -87,10 +87,10 @@ FSM 状态：
 
 ## 7. 用测试反向理解（第 2 阶段入口）
 
-- `tests/unit/agents/test_capture_fsm.py`：一句话捕获与防重复注入
+- `tests/unit/modules/capture/test_capture_fsm.py`：一句话捕获与防重复注入
 - `tests/integration/test_audio_bus.py`：单次预处理 + 三路分发
 - `tests/integration/test_wake_vad_workers.py`：wake/vad 事件触发行为
-- `tests/unit/core/test_boundaries.py`：抽象边界与事件形状
+- `tests/unit/shared/test_boundaries.py`：抽象边界与事件形状
 
 ## 8. 快速验证命令
 

@@ -95,6 +95,10 @@ def test_normalize_cli_argv_leaves_help_at_root() -> None:
     assert cli_main.normalize_cli_argv(["--help"]) == ["--help"]
 
 
+def test_normalize_cli_argv_does_not_rewrite_known_subcommands() -> None:
+    assert cli_main.normalize_cli_argv(["backend", "list"]) == ["backend", "list"]
+
+
 def test_main_dispatches_config_validate(monkeypatch) -> None:
     monkeypatch.setattr(cli_main, "load_config", lambda _path: types.SimpleNamespace())
 
@@ -164,3 +168,203 @@ def test_dev_command_wraps_python_tools_when_uv_is_available(monkeypatch) -> Non
     command = cli_main._dev_command("pytest", "-q")
 
     assert command == ["/usr/bin/uv", "run", "--python", "3.11", "python", "-m", "pytest", "-q"]
+
+
+def test_build_arg_parser_registers_backend_and_asset_groups() -> None:
+    parser = cli_main.build_arg_parser()
+
+    backend_list_args = parser.parse_args(["backend", "list"])
+    backend_current_args = parser.parse_args(["backend", "current"])
+    backend_doctor_args = parser.parse_args(["backend", "doctor"])
+    asset_status_args = parser.parse_args(["asset", "status", "funasr_ws_managed"])
+
+    assert backend_list_args.func is cli_main._cmd_backend_list
+    assert backend_current_args.func is cli_main._cmd_backend_current
+    assert backend_doctor_args.func is cli_main._cmd_backend_doctor
+    assert asset_status_args.func is cli_main._cmd_asset_status
+
+
+def test_backend_list_command_prints_known_backends(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        cli_main,
+        "BUILTIN_BACKENDS",
+        {
+            "funasr_ws_external": types.SimpleNamespace(
+                backend_id="funasr_ws_external",
+                display_name="FunASR WebSocket External",
+                kind="external_service",
+                transport="websocket",
+                managed_by_default=False,
+            ),
+            "funasr_ws_managed": types.SimpleNamespace(
+                backend_id="funasr_ws_managed",
+                display_name="FunASR WebSocket Managed",
+                kind="managed_service",
+                transport="websocket",
+                managed_by_default=True,
+            ),
+        },
+    )
+
+    code = cli_main._cmd_backend_list(types.SimpleNamespace())
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_OK
+    assert captured.out.splitlines() == [
+        "funasr_ws_external\tFunASR WebSocket External\texternal_service\twebsocket\tmanaged_by_default=false",
+        "funasr_ws_managed\tFunASR WebSocket Managed\tmanaged_service\twebsocket\tmanaged_by_default=true",
+    ]
+
+
+def test_backend_current_command_prints_resolved_backend(monkeypatch, capsys) -> None:
+    cfg = types.SimpleNamespace(asr_backend="funasr_ws_managed")
+    backend = types.SimpleNamespace(
+        backend_id="funasr_ws_managed",
+        display_name="FunASR WebSocket Managed",
+        kind="managed_service",
+        transport="websocket",
+        managed_by_default=True,
+    )
+    monkeypatch.setattr(cli_main, "load_config", lambda _path: cfg)
+    monkeypatch.setattr(cli_main, "resolve_backend_definition", lambda _backend_id: backend)
+
+    code = cli_main._cmd_backend_current(types.SimpleNamespace(config="config/config.yaml"))
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_OK
+    assert captured.out.splitlines() == [
+        "backend_id=funasr_ws_managed",
+        "display_name=FunASR WebSocket Managed",
+        "kind=managed_service",
+        "transport=websocket",
+        "managed_by_default=true",
+    ]
+
+
+def test_backend_doctor_command_reports_backend_health(monkeypatch, capsys) -> None:
+    cfg = types.SimpleNamespace(asr_backend="funasr_ws_managed", asr_ws_url="ws://127.0.0.1:10096/")
+    backend = types.SimpleNamespace(
+        backend_id="funasr_ws_managed",
+        display_name="FunASR WebSocket Managed",
+        kind="managed_service",
+        transport="websocket",
+        managed_by_default=True,
+    )
+    monkeypatch.setattr(cli_main, "load_config", lambda _path: cfg)
+    monkeypatch.setattr(cli_main, "resolve_backend_definition", lambda _backend_id: backend)
+    monkeypatch.setattr(
+        cli_main, "read_assets_state", lambda: {"funasr_ws_managed": {"status": "ok"}}
+    )
+    monkeypatch.setattr(
+        cli_main,
+        "probe_websocket_handshake",
+        lambda _url: (True, True, "websocket handshake ok: ws://127.0.0.1:10096/"),
+    )
+    monkeypatch.setattr(
+        cli_main,
+        "classify_backend_health",
+        lambda **kwargs: types.SimpleNamespace(
+            state="healthy",
+            reason="ok",
+            detail=kwargs["detail"],
+        ),
+    )
+
+    code = cli_main._cmd_backend_doctor(types.SimpleNamespace(config="config/config.yaml"))
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_OK
+    assert captured.out.splitlines() == [
+        "backend_id=funasr_ws_managed",
+        "state=healthy",
+        "reason=ok",
+        "detail=websocket handshake ok: ws://127.0.0.1:10096/",
+    ]
+
+
+def test_backend_doctor_command_returns_nonzero_for_unhealthy_backend(monkeypatch, capsys) -> None:
+    cfg = types.SimpleNamespace(asr_backend="funasr_ws_managed", asr_ws_url="ws://127.0.0.1:10096/")
+    backend = types.SimpleNamespace(
+        backend_id="funasr_ws_managed",
+        display_name="FunASR WebSocket Managed",
+        kind="managed_service",
+        transport="websocket",
+        managed_by_default=True,
+    )
+    monkeypatch.setattr(cli_main, "load_config", lambda _path: cfg)
+    monkeypatch.setattr(cli_main, "resolve_backend_definition", lambda _backend_id: backend)
+    monkeypatch.setattr(
+        cli_main, "read_assets_state", lambda: {"funasr_ws_managed": {"status": "ok"}}
+    )
+    monkeypatch.setattr(
+        cli_main,
+        "probe_websocket_handshake",
+        lambda _url: (True, False, "handshake failed"),
+    )
+    monkeypatch.setattr(
+        cli_main,
+        "classify_backend_health",
+        lambda **kwargs: types.SimpleNamespace(
+            state="degraded",
+            reason="handshake_failed",
+            detail=kwargs["detail"],
+        ),
+    )
+
+    code = cli_main._cmd_backend_doctor(types.SimpleNamespace(config="config/config.yaml"))
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_COMMAND_FAILURE
+    assert captured.out.splitlines() == [
+        "backend_id=funasr_ws_managed",
+        "state=degraded",
+        "reason=handshake_failed",
+        "detail=handshake failed",
+    ]
+
+
+def test_main_asset_status_returns_zero_for_installed_backend(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        cli_main,
+        "read_assets_state",
+        lambda: {"funasr_ws_managed": {"installed": True}},
+    )
+
+    code = cli_main.main(["asset", "status", "funasr_ws_managed"])
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_OK
+    assert captured.out.splitlines() == [
+        "backend_id=funasr_ws_managed",
+        "status=ok",
+    ]
+
+
+def test_main_asset_status_returns_nonzero_for_missing_backend(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(cli_main, "read_assets_state", lambda: {})
+
+    code = cli_main.main(["asset", "status", "funasr_ws_managed"])
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_COMMAND_FAILURE
+    assert captured.out.splitlines() == [
+        "backend_id=funasr_ws_managed",
+        "status=missing",
+    ]
+
+
+def test_main_asset_status_returns_nonzero_for_invalid_backend_state(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        cli_main,
+        "read_assets_state",
+        lambda: {"funasr_ws_managed": ["broken"]},
+    )
+
+    code = cli_main.main(["asset", "status", "funasr_ws_managed"])
+    captured = capsys.readouterr()
+
+    assert code == cli_main.EXIT_COMMAND_FAILURE
+    assert captured.out.splitlines() == [
+        "backend_id=funasr_ws_managed",
+        "status=invalid",
+    ]

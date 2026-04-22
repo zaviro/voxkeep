@@ -1,14 +1,14 @@
-"""Public entrypoints for the runtime module."""
+"""Public entrypoints for the audio engine module."""
 
 from __future__ import annotations
 
 from typing import Protocol
 
-from voxkeep.modules.runtime.contracts import RuntimeStatus
+from voxkeep.modules.audio_engine.contracts import RuntimeStatus
 
 
-class RuntimeModule(Protocol):
-    """Public API exposed by the runtime module."""
+class AudioEngineModule(Protocol):
+    """Public API exposed by the audio engine module."""
 
     def start(self) -> None:
         """Start runtime resources."""

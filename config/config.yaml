@@ -3,13 +3,22 @@ channels: 1
 frame_ms: 32
 max_queue_size: 512
 
-funasr:
-  host: 127.0.0.1
-  port: 10096
-  path: /
-  use_ssl: false
-  reconnect_initial_s: 1.0
-  reconnect_max_s: 30.0
+asr:
+  backend: qwen_vllm
+  mode: external
+  external:
+    host: 127.0.0.1
+    port: 8000
+    path: /v1/realtime
+    use_ssl: false
+  runtime:
+    reconnect_initial_s: 1.0
+    reconnect_max_s: 30.0
+  qwen:
+    model: Qwen/Qwen3-ASR-1.7B
+    realtime: true
+    gpu_memory_utilization: 0.65
+    max_model_len: 32768
 
 wake:
   threshold: 0.5

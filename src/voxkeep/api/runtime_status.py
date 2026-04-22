@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from voxkeep.modules.runtime.contracts import RuntimeStatus
+from voxkeep.modules.audio_engine.contracts import RuntimeStatus
 
 
 class QueueLike(Protocol):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent
 from voxkeep.shared.events import AsrFinalEvent, ProcessedFrame
 from voxkeep.shared.types import AudioFrame, TranscriptFinalized
 
@@ -21,6 +22,17 @@ def to_processed_frame(frame: AudioFrame) -> ProcessedFrame:
 def to_transcript_finalized(event: AsrFinalEvent) -> TranscriptFinalized:
     """Convert one legacy ASR event into the public transcript type."""
     return TranscriptFinalized(
+        segment_id=event.segment_id,
+        text=event.text,
+        start_ts=event.start_ts,
+        end_ts=event.end_ts,
+        is_final=event.is_final,
+    )
+
+
+def to_asr_final_event(event: TranscriptionBackendEvent) -> AsrFinalEvent:
+    """Normalize one backend transcript event into the legacy ASR event type."""
+    return AsrFinalEvent(
         segment_id=event.segment_id,
         text=event.text,
         start_ts=event.start_ts,

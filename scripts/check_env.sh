@@ -37,12 +37,26 @@ fi
 echo
 
 echo "== Audio sources =="
-if pactl list short sources; then
-  mark_pass "Audio sources"
+if command -v pactl >/dev/null 2>&1; then
+  if pactl list short sources; then
+    mark_pass "Audio sources"
+  else
+    mark_fail "Audio sources"
+  fi
 else
+  mark_fail "pactl tool"
   mark_fail "Audio sources"
 fi
-DEFAULT_SOURCE="$(pactl info | awk -F': ' '/Default Source/ {print $2}')"
+DEFAULT_SOURCE=""
+if command -v pactl >/dev/null 2>&1; then
+  if pactl_info_output="$(pactl info 2>/dev/null)"; then
+    DEFAULT_SOURCE="$(printf '%s\n' "$pactl_info_output" | awk -F': ' '/Default Source/ {print $2}')"
+  else
+    echo "Hint: pactl info is unavailable; skipping default source inspection."
+  fi
+else
+  echo "Hint: pactl is unavailable; skipping default source inspection."
+fi
 echo "Default Source: ${DEFAULT_SOURCE:-<none>}"
 if [[ -z "${DEFAULT_SOURCE:-}" ]]; then
   mark_fail "Default source present"
@@ -73,24 +87,42 @@ else
 fi
 echo
 
-echo "== FunASR TCP reachable =="
-FUNASR_HOST="${VOXKEEP_FUNASR_HOST:-${FUNASR_HOST:-127.0.0.1}}"
-FUNASR_PORT="${VOXKEEP_FUNASR_PORT:-${FUNASR_PORT:-10096}}"
-if run_python - <<PY
-import socket
+echo "== ASR backend health =="
+if run_python - <<'PY'
+from __future__ import annotations
 
-host = "${FUNASR_HOST}"
-port = int("${FUNASR_PORT}")
-s = socket.socket()
-s.settimeout(1.5)
-s.connect((host, port))
-print(f"funasr ok {host}:{port}")
-s.close()
+from voxkeep.shared.asr_assets import read_assets_state
+from voxkeep.shared.asr_health import classify_backend_health
+from voxkeep.shared.asr_health import probe_websocket_handshake
+from voxkeep.shared.config import load_config
+
+
+cfg = load_config("config/config.yaml")
+backend = cfg.asr.backend
+detail = f"{backend} @ {cfg.asr.external_host}:{cfg.asr.external_port}"
+asset_note = ""
+try:
+    read_assets_state()
+except ValueError as exc:
+    asset_note = str(exc)
+
+tcp_ok, handshake_ok, probe_detail = probe_websocket_handshake(cfg.asr.ws_url)
+if asset_note:
+    probe_detail = f"{probe_detail}; assets warning: {asset_note}"
+status = classify_backend_health(
+    tcp_ok=tcp_ok,
+    handshake_ok=handshake_ok,
+    assets_status="ok",
+    detail=probe_detail,
+)
+
+print(f"{status.state} {status.reason} {status.detail}")
+raise SystemExit(0 if status.state == "healthy" else 1)
 PY
 then
-  mark_pass "FunASR TCP reachable"
+  mark_pass "ASR backend health"
 else
-  mark_fail "FunASR TCP reachable"
+  mark_fail "ASR backend health"
 fi
 echo
 
