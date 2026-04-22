@@ -10,7 +10,15 @@ import yaml
 
 from voxkeep.shared.config_defaults import DEFAULTS
 from voxkeep.shared.config_env import ENV_MAP
-from voxkeep.shared.config_schema import AppConfig, WakeRuleConfig
+from voxkeep.shared.config_schema import (
+    AppConfig,
+    AsrConfig,
+    AudioEngineConfig,
+    CaptureConfig,
+    InjectorConfig,
+    StorageConfig,
+    WakeRuleConfig,
+)
 
 
 def _deep_copy_dict(obj: dict[str, Any]) -> dict[str, Any]:
@@ -112,39 +120,63 @@ def load_config(path: str | Path) -> AppConfig:
     reconnect_initial_s = float(asr_runtime.get("reconnect_initial_s", 1.0))
     reconnect_max_s = float(asr_runtime.get("reconnect_max_s", 30.0))
 
-    return AppConfig(
+    # Build nested configs
+    audio_engine_cfg = AudioEngineConfig(
         sample_rate=int(merged["sample_rate"]),
         channels=int(merged["channels"]),
         frame_ms=int(merged["frame_ms"]),
         max_queue_size=int(merged["max_queue_size"]),
-        asr_reconnect_initial_s=reconnect_initial_s,
-        asr_reconnect_max_s=reconnect_max_s,
-        asr_backend=str(asr["backend"]),
-        asr_mode=str(asr["mode"]),
-        asr_external_host=str(external["host"]),
-        asr_external_port=int(external["port"]),
-        asr_external_path=str(external["path"]),
-        asr_external_use_ssl=bool(external["use_ssl"]),
-        asr_runtime_reconnect_initial_s=reconnect_initial_s,
-        asr_runtime_reconnect_max_s=reconnect_max_s,
-        asr_qwen_model=str(qwen["model"]),
-        asr_qwen_realtime=bool(qwen["realtime"]),
-        asr_qwen_gpu_memory_utilization=float(qwen["gpu_memory_utilization"]),
-        asr_qwen_max_model_len=int(qwen["max_model_len"]),
+    )
+
+    asr_cfg = AsrConfig(
+        backend=str(asr["backend"]),
+        mode=str(asr["mode"]),
+        external_host=str(external["host"]),
+        external_port=int(external["port"]),
+        external_path=str(external["path"]),
+        use_ssl=bool(external["use_ssl"]),
+        reconnect_initial_s=reconnect_initial_s,
+        reconnect_max_s=reconnect_max_s,
+        runtime_reconnect_initial_s=reconnect_initial_s,
+        runtime_reconnect_max_s=reconnect_max_s,
+        qwen_model=str(qwen["model"]),
+        qwen_realtime=bool(qwen["realtime"]),
+        qwen_gpu_memory_utilization=float(qwen["gpu_memory_utilization"]),
+        qwen_max_model_len=int(qwen["max_model_len"]),
+    )
+
+    capture_cfg = CaptureConfig(
         wake_threshold=float(wake["threshold"]),
         wake_rules=_parse_wake_rules(list(wake.get("rules", []))),
         vad_speech_threshold=float(vad["speech_threshold"]),
         vad_silence_ms=int(vad["silence_ms"]),
         pre_roll_ms=int(capture["pre_roll_ms"]),
         armed_timeout_ms=int(capture["armed_timeout_ms"]),
+        max_queue_size=int(merged["max_queue_size"]),
+    )
+
+    storage_cfg = StorageConfig(
         sqlite_path=str(storage["sqlite_path"]),
         store_final_only=bool(storage["store_final_only"]),
         jsonl_debug_path=str(storage.get("jsonl_debug_path") or "") or None,
-        injector_backend=str(injector["backend"]),
-        injector_auto_enter=bool(injector["auto_enter"]),
+        max_queue_size=int(merged["max_queue_size"]),
+    )
+
+    injector_cfg = InjectorConfig(
+        backend=str(injector["backend"]),
+        auto_enter=bool(injector["auto_enter"]),
         xdotool_delay_ms=int(injector["xdotool_delay_ms"]),
         openclaw_command=command,
         openclaw_timeout_s=float(openclaw["timeout_s"]),
+        max_queue_size=int(merged["max_queue_size"]),
+    )
+
+    return AppConfig(
+        audio_engine=audio_engine_cfg,
+        asr=asr_cfg,
+        capture=capture_cfg,
+        storage=storage_cfg,
+        injector=injector_cfg,
         log_level=str(runtime["log_level"]),
     )
 
