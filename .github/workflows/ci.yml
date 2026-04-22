@@ -8,9 +8,6 @@ on:
 
 env:
   # CI runners do not provide CUDA devices; force CPU path for deterministic behavior.
-  VOXKEEP_MANAGE_FUNASR: "0"
-  VOXKEEP_FUNASR_DEVICE: "cpu"
-  VOXKEEP_FUNASR_NGPU: "0"
   CUDA_VISIBLE_DEVICES: ""
 
 jobs:

@@ -11,7 +11,7 @@ The repository follows a **modular-monolith** shape. Primary runtime code lives 
 - `modules/transcription/`: backend adapters and transcription-facing public API.
 - `modules/injection/`: text injection and action execution.
 - `modules/storage/`: persistence and storage workers.
-- `modules/runtime/`: audio capture, preprocessing, audio bus, and runtime infrastructure.
+- `modules/audio_engine/`: audio capture, preprocessing, audio bus, and audio engine infrastructure.
 - `shared/`: shared config, types, logging, and queue utilities.
 - `bootstrap/`: top-level runtime wiring and lifecycle orchestration.
 - `api/` and `cli/`: external entrypoints and operator-facing APIs.
@@ -22,7 +22,7 @@ The repository follows a **modular-monolith** shape. Primary runtime code lives 
 - Do not add new runtime logic under `src/voxkeep/core/`, `src/voxkeep/infra/`, or `src/voxkeep/services/`.
 - Cross-module imports under `src/voxkeep/modules/` must go through the target module's `public.py`.
 - `shared/` must NOT import from `voxkeep.modules.*`.
-- Do not open microphone devices outside `src/voxkeep/modules/runtime/infrastructure/audio_capture.py`.
+- Do not open microphone devices outside `src/voxkeep/modules/audio_engine/infrastructure/audio_capture.py`.
 - Do not write SQLite outside the storage module.
 - Do not bypass module public APIs by deep-importing implementation details.
 - Emit clear log messages if any backend falls back or fails.

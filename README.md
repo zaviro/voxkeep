@@ -81,7 +81,7 @@ src/voxkeep/
     transcription/ # ASR 后端适配与转写入口
     injection/    # 文本注入与动作执行
     storage/      # SQLite 持久化
-    runtime/      # 音频采集、预处理、audio bus
+    audio_engine/  # 音频采集、预处理、audio bus
   shared/         # 配置、事件、日志、队列工具
   api/            # 外部 API 入口
   cli/            # CLI 入口
