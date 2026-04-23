@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-from dataclasses import replace
 from importlib import import_module
 import queue
 import threading
@@ -13,7 +11,6 @@ import pytest
 
 from voxkeep.modules.transcription.application.backend_events import BackendTranscriptEvent
 from voxkeep.modules.transcription.contracts import TranscriptionBackendEvent, TranscriptionEngine
-from voxkeep.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
 from voxkeep.shared.events import AsrFinalEvent, StorageRecord
 from voxkeep.modules.transcription.public import build_transcription_module
 from voxkeep.shared.config import AppConfig
@@ -247,6 +244,8 @@ def test_transcription_module_bridge_skips_partial_events_before_worker_queue(
         _fake_worker_factory,
     )
     stop_event = threading.Event()
+    from dataclasses import replace
+
     new_asr = replace(app_config.asr, max_queue_size=1)
     module = build_transcription_module(
         capture_queue=queue.Queue(),
@@ -361,32 +360,18 @@ def test_build_asr_engine_uses_backend_specific_constructor(
     monkeypatch, app_config: AppConfig
 ) -> None:
     engine_factory = import_module("voxkeep.modules.transcription.infrastructure.engine_factory")
-    sentinel_external = object()
     sentinel_qwen = object()
-    monkeypatch.setitem(
-        engine_factory.BACKEND_ENGINE_BUILDERS, "funasr_ws_external", lambda **_: sentinel_external
-    )
     monkeypatch.setitem(
         engine_factory.BACKEND_ENGINE_BUILDERS, "qwen_vllm", lambda **_: sentinel_qwen
     )
 
-    # Note: funasr_ws_external was removed from BUILTIN_BACKENDS but we manually patched the factory here for test
-    # We should actually use valid backend IDs or patch resolve_backend_definition
-    monkeypatch.setattr(
-        "voxkeep.modules.transcription.infrastructure.engine_factory.resolve_backend_definition",
-        lambda bid: SimpleNamespace(backend_id=bid),
-    )
+    from dataclasses import replace
 
-    external = engine_factory.build_asr_engine(
-        cfg=replace(app_config.asr, backend="funasr_ws_external"),
-        stop_event=threading.Event(),
-    )
     qwen = engine_factory.build_asr_engine(
         cfg=replace(app_config.asr, backend="qwen_vllm"),
         stop_event=threading.Event(),
     )
 
-    assert external is sentinel_external
     assert qwen is sentinel_qwen
 
 
@@ -394,6 +379,8 @@ def test_build_transcription_module_supports_qwen_backend(
     monkeypatch, app_config: AppConfig
 ) -> None:
     fake_engine = _FakeEngine()
+    from dataclasses import replace
+
     new_asr = replace(app_config.asr, backend="qwen_vllm")
     monkeypatch.setattr(
         "voxkeep.modules.transcription.public.build_asr_engine",
@@ -413,39 +400,6 @@ def test_build_transcription_module_supports_qwen_backend(
 
 def test_transcription_engine_contract_exposes_join_method() -> None:
     assert "join" in TranscriptionEngine.__dict__
-
-
-def test_funasr_ws_engine_emits_backend_transcript_events(app_config: AppConfig) -> None:
-    stop_event = threading.Event()
-    engine = FunAsrWsEngine(cfg=app_config.asr, stop_event=stop_event)
-
-    class _FakeWebSocket:
-        def __init__(self, messages: list[str]) -> None:
-            self._messages = messages
-
-        def __aiter__(self):
-            async def _iterate():
-                for message in self._messages:
-                    yield message
-
-            return _iterate()
-
-    asyncio.run(
-        engine._receiver(
-            _FakeWebSocket(
-                [
-                    '{"type": "final", "text": "hello", "start": 1.0, "end": 1.2, "segment_id": "seg-1"}'
-                ]
-            )
-        )
-    )
-
-    event = engine.final_queue.get_nowait()
-
-    assert isinstance(event, BackendTranscriptEvent)
-    assert event.event_type == "final"
-    assert event.is_final is True
-    assert event.text == "hello"
 
 
 def test_backend_transcript_event_marks_final_events() -> None:

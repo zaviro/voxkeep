@@ -6,14 +6,9 @@ import threading
 from typing import Callable
 
 from voxkeep.modules.transcription.contracts import TranscriptionEngine
-from voxkeep.modules.transcription.infrastructure.funasr_ws import FunAsrWsEngine
 from voxkeep.modules.transcription.infrastructure.qwen_vllm import QwenVllmEngine
 from voxkeep.shared.asr_backends import resolve_backend_definition
 from voxkeep.shared.config import AsrConfig
-
-
-def _build_funasr_ws_engine(*, cfg: AsrConfig, stop_event: threading.Event) -> TranscriptionEngine:
-    return FunAsrWsEngine(cfg=cfg, stop_event=stop_event)
 
 
 def _build_qwen_vllm_engine(*, cfg: AsrConfig, stop_event: threading.Event) -> TranscriptionEngine:
@@ -21,8 +16,6 @@ def _build_qwen_vllm_engine(*, cfg: AsrConfig, stop_event: threading.Event) -> T
 
 
 BACKEND_ENGINE_BUILDERS: dict[str, Callable[..., TranscriptionEngine]] = {
-    "funasr_ws_external": _build_funasr_ws_engine,
-    "funasr_ws_managed": _build_funasr_ws_engine,
     "qwen_vllm": _build_qwen_vllm_engine,
 }
 

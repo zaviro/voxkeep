@@ -28,7 +28,7 @@ make validate-config
 uv run --python 3.11 python -m voxkeep run --config config/config.yaml
 ```
 
-`make run` goes through `scripts/run_local.sh`, which is still a FunASR-oriented compatibility launcher and may override the YAML backend via `VOXKEEP_ASR_*`.
+`make run` is the primary way to start the local development runtime using the default `config/config.yaml`.
 
 ## Quality Gates
 
